@@ -2,7 +2,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
-#include <eigen3/Eigen/Core>
+#include <Eigen/Core>
 
 #include "common/StateManager.h"
 #include "common/DataManager.h"

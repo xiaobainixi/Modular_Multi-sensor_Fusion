@@ -22,9 +22,9 @@ public:
     // void Input(std::shared_ptr<IMUPredictor::IMUData> imu_data_ptr);
     // void Input(std::shared_ptr<IMUPredictor::IMUData> imu_data_ptr);
 
-    State GetNewestState() {
+    // State GetNewestState() {
 
-    }
+    // }
 private:
     std::shared_ptr<StateManager> state_manager_ptr_;
     std::shared_ptr<DataManager> data_manager_ptr_;

@@ -4,7 +4,7 @@
 #include <vector>
 #include <memory>
 #include <mutex>
-#include <eigen3/Eigen/Core>
+#include <Eigen/Core>
 
 #include "Parameter.h"
 

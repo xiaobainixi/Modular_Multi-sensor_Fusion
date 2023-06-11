@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 #include <memory>
-#include <eigen3/Eigen/Core>
+#include <Eigen/Core>
 
 class Parameter {
 public:
