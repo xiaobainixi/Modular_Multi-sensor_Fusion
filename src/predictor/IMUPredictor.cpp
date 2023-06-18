@@ -62,10 +62,10 @@ void IMUPredictor::Predict() {
     F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->VEL_INDEX_STATE_) = Eigen::Matrix3d::Identity();
 
     Eigen::MatrixXd G = Eigen::MatrixXd::Zero(param_ptr_->STATE_DIM, 12);
-    G.block<3, 3>(0, 0) = -Eigen::Matrix3d::Identity();
-    G.block<3, 3>(3, 3) = Eigen::Matrix3d::Identity();
-    G.block<3, 3>(6, 6) = -last_state_ptr->Rbw_.transpose();
-    G.block<3, 3>(9, 9) = Eigen::Matrix3d::Identity();
+    G.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, 0) = -Eigen::Matrix3d::Identity();
+    G.block<3, 3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, 3) = Eigen::Matrix3d::Identity();
+    G.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, 6) = -last_state_ptr->Rbw_.transpose();
+    G.block<3, 3>(param_ptr_->ACC_BIAS_INDEX_STATE_, 9) = Eigen::Matrix3d::Identity();
 
     Eigen::MatrixXd Phi = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) + F * delta_t;
     Eigen::MatrixXd Bk = G * delta_t;
