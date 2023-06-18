@@ -18,6 +18,14 @@ struct WheelData {
     double lv_, rv_;
 };
 
+struct WheelIMUData {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    double time_ = -1.0;
+    // m/s^2  rad/s
+    Eigen::Vector3d a_, w_;
+    double lv_, rv_;
+};
+
 struct GPSData {
     double time_ = -1.0;
 };
