@@ -31,15 +31,15 @@ void IMUPredictor::Predict() {
     // 计算当前状态的角度
     Eigen::Vector3d cur_unbias_angular_vel = cur_data.w_ - last_state_ptr->bg_;
     Eigen::Vector3d last_unbias_angular_vel = last_data_.w_ - last_state_ptr->bg_;
-    Eigen::Vector3d angular_delta = 0.5 * (cur_unbias_angular_vel + last_unbias_angular_vel) * delta_t;
+    Eigen::Vector3d angular_delta = -0.5 * (cur_unbias_angular_vel + last_unbias_angular_vel) * delta_t;
 
-    cur_state_ptr->Rwb_ = last_state_ptr->Rwb_ * Eigen::AngleAxisd(angular_delta.norm(), angular_delta.normalized()).toRotationMatrix();
+    cur_state_ptr->Rbw_ = Eigen::AngleAxisd(angular_delta.norm(), angular_delta.normalized()).toRotationMatrix() * last_state_ptr->Rbw_;
 
     //-------------------------------------------------------------------------------------------------------------
     // 计算当前状态的速度
     Eigen::Vector3d last_v, avg_a;
-    Eigen::Vector3d cur_unbias_a = cur_state_ptr->Rwb_ * (cur_data.a_ - last_state_ptr->bg_) + gw_;
-    Eigen::Vector3d last_unbias_a = last_state_ptr->Rwb_ * (last_data_.a_ - last_state_ptr->bg_) + gw_;
+    Eigen::Vector3d cur_unbias_a = cur_state_ptr->Rbw_.transpose() * (cur_data.a_ - last_state_ptr->bg_) + gw_;
+    Eigen::Vector3d last_unbias_a = last_state_ptr->Rbw_.transpose() * (last_data_.a_ - last_state_ptr->bg_) + gw_;
 
     last_v = last_state_ptr->Vw_;
     avg_a = 0.5 * (cur_unbias_a + last_unbias_a);
@@ -51,28 +51,30 @@ void IMUPredictor::Predict() {
 
     //---------------------------------------------------------------------------------------------------
     // 计算协方差矩阵
-    // 定义： 估计数值 = 理想数值 + 误差
+    // 定义： 理想数值 = 估计数值 + 误差
+    Eigen::MatrixXd F = Eigen::MatrixXd::Zero(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM);
+    F.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) = -Converter::Skew(cur_unbias_angular_vel);
+    F.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) = -Eigen::Matrix3d::Identity();
 
-    Eigen::Matrix3d F_13 = Converter::Skew(cur_unbias_a);
+    F.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) =
+        last_state_ptr->Rbw_.transpose() * Converter::Skew(cur_data.a_ - last_state_ptr->bg_);
+    F.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->ACC_BIAS_INDEX_STATE_) = -last_state_ptr->Rbw_.transpose();
+    F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->VEL_INDEX_STATE_) = Eigen::Matrix3d::Identity();
 
-    
-    // std::cout<<"after"<<std::endl<<F_23<<std::endl;
-    mF.block<3, 3>(INDEX_STATE_POSI, INDEX_STATE_ORI) = -0.5 * F_13 * delta_t;
-    mF.block<3, 3>(INDEX_STATE_POSI, INDEX_STATE_ACC_BIAS) = 0.5 * cur_state_ptr->Rwb_ * delta_t;
+    Eigen::MatrixXd G = Eigen::MatrixXd::Zero(param_ptr_->STATE_DIM, 12);
+    G.block<3, 3>(0, 0) = -Eigen::Matrix3d::Identity();
+    G.block<3, 3>(3, 3) = Eigen::Matrix3d::Identity();
+    G.block<3, 3>(6, 6) = -last_state_ptr->Rbw_.transpose();
+    G.block<3, 3>(9, 9) = Eigen::Matrix3d::Identity();
 
-    mF.block<3, 3>(INDEX_STATE_VEL, INDEX_STATE_ORI) = -F_13;
-    mF.block<3, 3>(INDEX_STATE_VEL, INDEX_STATE_ACC_BIAS) = cur_state_ptr->Rwb_;
-    mF.block<3, 3>(INDEX_STATE_ORI, INDEX_STATE_GYRO_BIAS) = cur_state_ptr->Rwb_; // cur_state_ptr->Rwb_;  Eigen::Matrix3d::Identity()
-    mB.block<3, 3>(INDEX_STATE_VEL, 3) = cur_state_ptr->Rwb_;
-    mB.block<3, 3>(INDEX_STATE_ORI, 0) = cur_state_ptr->Rwb_; // cur_state_ptr->Rwb_;  Eigen::Matrix3d::Identity()
+    Eigen::MatrixXd Phi = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) + F * delta_t;
+    Eigen::MatrixXd Bk = G * delta_t;
 
-    Eigen::MatrixXd Fk = Eigen::MatrixXd::Identity(DIM_STATE, DIM_STATE) + mF * delta_t;
+    cur_state_ptr->C_ = Phi * last_state_ptr->C_ * Phi.transpose() + Phi * G * param_ptr_->imu_continuous_noise_cov_ * G.transpose() * Phi.transpose() * delta_t;
 
-    Eigen::MatrixXd Bk = mB * delta_t;
-    mFt = mF;
-
-    mX = Fk * mX;
-    mState.covariance = Fk * mState.covariance * Fk.transpose() + Bk * mQ * Bk.transpose();
+    Eigen::MatrixXd state_cov_fixed = 
+        (cur_state_ptr->C_ + cur_state_ptr->C_.transpose()) / 2.0;
+    cur_state_ptr->C_ = state_cov_fixed;
 
     state_manager_ptr_->PushState(cur_state_ptr);
     last_data_ = cur_data;
