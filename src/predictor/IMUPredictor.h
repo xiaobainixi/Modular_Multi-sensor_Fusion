@@ -5,7 +5,6 @@
 class IMUPredictor : public Predictor {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    
 
     IMUPredictor(std::shared_ptr<StateManager<IMUData>> state_manager_ptr, std::shared_ptr<Parameter> param_ptr, std::shared_ptr<DataManager> data_manager_ptr) {
         state_manager_ptr_ = state_manager_ptr;

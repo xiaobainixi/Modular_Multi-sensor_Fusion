@@ -8,6 +8,7 @@
 
 #include "Parameter.h"
 #include "DataManager.h"
+#include "Converter.h"
 
 template<class AlignedData>
 class State {
@@ -20,8 +21,8 @@ public:
     Eigen::Vector3d Vw_ = Eigen::Vector3d::Zero();
     Eigen::Vector3d twb_ = Eigen::Vector3d::Zero();
     Eigen::Matrix3d Rwb_ = Eigen::Matrix3d::Identity();
-    Eigen::Vector3d Ba_ = Eigen::Vector3d::Zero();
-    Eigen::Vector3d Bw_ = Eigen::Vector3d::Zero();
+    Eigen::Vector3d ba_ = Eigen::Vector3d::Zero();
+    Eigen::Vector3d bg_ = Eigen::Vector3d::Zero();
 
     AlignedData aligned_data_;
 };
