@@ -30,6 +30,7 @@ public:
     }
 
     // 不同模式状态不同，默认是纯IMU做预测
+    int state_type_ = 0;
     int STATE_DIM = 15;
     int POSI_INDEX = 0;
     int VEL_INDEX_STATE_ = 3;
@@ -41,5 +42,9 @@ public:
     double gyro_bias_noise_ = 0.001;
     double acc_noise_ = 0.05;
     double acc_bias_noise_ = 0.01;
+
+    double gps_x_noise_ = 0.02;
+    double gps_y_noise_ = 0.02;
+    double gps_z_noise_ = 0.05;
     Eigen::Matrix<double, 12, 12> imu_continuous_noise_cov_;
 };

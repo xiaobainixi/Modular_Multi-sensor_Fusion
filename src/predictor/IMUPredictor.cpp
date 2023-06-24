@@ -10,9 +10,9 @@ void IMUPredictor::Predict() {
     std::cout << cur_data.w_.transpose() << std::endl;
     // 第一个数据
     if (last_data_.time_ <= 0.0) {
-        std::shared_ptr<State<IMUData>> cur_state_ptr = std::make_shared<State<IMUData>>();
+        std::shared_ptr<State> cur_state_ptr = std::make_shared<State>();
         cur_state_ptr->time_ = cur_data.time_;
-        cur_state_ptr->aligned_data_ = cur_data;
+        cur_state_ptr->C_ = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) * 100.0;
         state_manager_ptr_->PushState(cur_state_ptr);
         last_data_ = cur_data;
         return;
@@ -20,11 +20,10 @@ void IMUPredictor::Predict() {
     double delta_t = cur_data.time_ - last_data_.time_;
     if (delta_t <= 0.0)
         return;
-    std::shared_ptr<State<IMUData>> cur_state_ptr = std::make_shared<State<IMUData>>();
+    std::shared_ptr<State> cur_state_ptr = std::make_shared<State>();
     cur_state_ptr->time_ = cur_data.time_;
-    cur_state_ptr->aligned_data_ = cur_data;
 
-    std::shared_ptr<State<IMUData>> last_state_ptr;
+    std::shared_ptr<State> last_state_ptr;
     state_manager_ptr_->GetNearestState(last_state_ptr);
 
     //-------------------------------------------------------------------------------------------------------------

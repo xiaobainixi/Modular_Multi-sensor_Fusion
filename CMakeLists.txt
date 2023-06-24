@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
 project(Modular_Multi-sensor_Fusion)
 
+add_definitions(-w)
+
 IF(NOT CMAKE_BUILD_TYPE)
     SET(CMAKE_BUILD_TYPE Release)
 ENDIF()
@@ -56,6 +58,8 @@ add_library(${PROJECT_NAME} SHARED
     src/predictor/IMUPredictor.cpp
     src/predictor/WheelIMUPredictor.cpp
     src/predictor/WheelPredictor.cpp
+
+    src/updater/Filter.cpp
 
     src/FusionSystem.cpp
 )

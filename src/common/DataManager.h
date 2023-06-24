@@ -28,6 +28,9 @@ struct WheelIMUData {
 
 struct GPSData {
     double time_ = -1.0;
+    double lat;
+    double lon;
+    double h;
 };
 
 struct CameraData {

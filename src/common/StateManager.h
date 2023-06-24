@@ -10,7 +10,6 @@
 #include "DataManager.h"
 #include "Converter.h"
 
-template<class AlignedData>
 class State {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -24,17 +23,27 @@ public:
     Eigen::Vector3d ba_ = Eigen::Vector3d::Zero();
     Eigen::Vector3d bg_ = Eigen::Vector3d::Zero();
 
-    AlignedData aligned_data_;
+    void Update(std::shared_ptr<Parameter> param_ptr, const Eigen::VectorXd & X, const Eigen::MatrixXd & C_new) {
+        if (param_ptr->state_type_ == 0) {
+            Rbw_ = Converter::ExpSO3(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rbw_;
+            Vw_ += X.block<3, 1>(param_ptr->VEL_INDEX_STATE_, 0);
+            twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);
+            ba_ += X.block<3, 1>(param_ptr->ACC_BIAS_INDEX_STATE_, 0);
+            bg_ += X.block<3, 1>(param_ptr->GYRO_BIAS_INDEX_STATE_, 0);
+        } else {
+            // todo
+        }
+        C_ = C_new;
+    }
 };
 
-template<class AlignedData>
 class StateManager {
 public:
     StateManager(std::shared_ptr<Parameter> param_ptr) {
         param_ptr_ = param_ptr;
     }
 
-    inline bool GetNearestState(std::shared_ptr<State<AlignedData>> & state) {
+    inline bool GetNearestState(std::shared_ptr<State> & state) {
         std::unique_lock<std::mutex> lock(states_mtx_);
         if (states_.empty()) {
             return false;
@@ -44,7 +53,7 @@ public:
         }
     }
 
-    inline bool PushState(const std::shared_ptr<State<AlignedData>> & state) {
+    inline bool PushState(const std::shared_ptr<State> & state) {
         if (!state)
             return false;
 
@@ -55,7 +64,7 @@ public:
         return true;
     }
 
-    inline std::vector<std::shared_ptr<State<AlignedData>>> GetState() {
+    inline std::vector<std::shared_ptr<State>> GetState() {
         std::unique_lock<std::mutex> lock(states_mtx_);
         return states_;
     }
@@ -65,6 +74,6 @@ private:
     // 不同线程访问，一定要加锁
     std::mutex states_mtx_;
     // 只保留最近10s状态？
-    std::vector<std::shared_ptr<State<AlignedData>>> states_;
+    std::vector<std::shared_ptr<State>> states_;
     std::shared_ptr<Parameter> param_ptr_;
 };
