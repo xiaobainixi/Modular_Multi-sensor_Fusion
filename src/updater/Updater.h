@@ -1,4 +1,5 @@
 #pragma once
+#include <unistd.h>
 
 #include "common/StateManager.h"
 #include "common/DataManager.h"
@@ -7,9 +8,12 @@
 #include "observer/WheelObserver.h"
 #include "observer/CameraObserver.h"
 
+#include "viewer/Viewer.h"
+
 class Updater {
 public:
     Updater() {}
-private:
-
+protected:
+    virtual void Run() = 0;
+    std::shared_ptr<std::thread> run_thread_ptr_;
 };

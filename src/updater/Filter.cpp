@@ -21,3 +21,25 @@ void Filter::Update(const std::shared_ptr<State> & state_ptr, const GPSData & gp
     }
     // todo add other sensor
 }
+
+void Filter::Run() {
+    GPSData last_gps_data;
+    // 循环读数据
+    while (1)
+    {
+        std::shared_ptr<State> state_ptr;
+        if(!state_manager_ptr_->GetNearestState(state_ptr)) {
+            usleep(100);
+            continue;
+        }
+
+        GPSData cur_gps_data = data_manager_ptr_->GetLastGPSData();
+        if (cur_gps_data.time_ < 0.0 || cur_gps_data.time_ <= last_gps_data.time_) {
+            usleep(100);
+            continue;
+        }
+        Update(state_ptr, cur_gps_data);
+
+        usleep(100);
+    }
+}

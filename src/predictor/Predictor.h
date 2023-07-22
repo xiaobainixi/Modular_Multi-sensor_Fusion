@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <memory>
+#include <unistd.h>
 #include <mutex>
 #include <Eigen/Core>
 #include <Eigen/Dense>
@@ -10,13 +11,16 @@
 #include "common/StateManager.h"
 #include "common/DataManager.h"
 
+#include "viewer/Viewer.h"
+
 class Predictor {
 public:
     Predictor() = default;
 
-    virtual void Predict() = 0;
-
 protected:
+    virtual void Run() = 0;
+    std::shared_ptr<std::thread> run_thread_ptr_;
+
     std::shared_ptr<Parameter> param_ptr_;
     std::shared_ptr<DataManager> data_manager_ptr_;
     double g_ = 9.81;

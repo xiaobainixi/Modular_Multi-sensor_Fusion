@@ -10,17 +10,17 @@
 
 class FusionSystem {
 public:
-    FusionSystem() {
-        param_ptr_ = std::make_shared<Parameter>("");
-        state_manager_ptr_ = std::make_shared<StateManager>(param_ptr_);
-        data_manager_ptr_ = std::make_shared<DataManager>();
+    FusionSystem(std::shared_ptr<Parameter> param_ptr, std::shared_ptr<StateManager> state_manager_ptr, std::shared_ptr<DataManager> data_manager_ptr) {
+        param_ptr_ = param_ptr;
+        state_manager_ptr_ = state_manager_ptr;
+        data_manager_ptr_ = data_manager_ptr;
 
         {
             predictor_ptr_ = std::make_shared<IMUPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_);
         }
 
         {
-            filt_updater_ptr_ = std::make_shared<Filter>(param_ptr_, data_manager_ptr_, state_manager_ptr_);
+            updater_ptr_ = std::make_shared<Filter>(param_ptr_, data_manager_ptr_, state_manager_ptr_);
         }
     }
 
@@ -36,22 +36,9 @@ public:
     // }
 private:
 
-    /**********************************/
-    void FilterProcessing();
-    /**********************************/
-
-    /**********************************/
-    void DelayedFilterProcessing();
-    /**********************************/
-
-    /**********************************/
-    void OptimizeProcessing();
-    /**********************************/
-
-
     std::shared_ptr<StateManager> state_manager_ptr_;
     std::shared_ptr<DataManager> data_manager_ptr_;
     std::shared_ptr<Parameter> param_ptr_;
     std::shared_ptr<Predictor> predictor_ptr_;
-    std::shared_ptr<Filter> filt_updater_ptr_;
+    std::shared_ptr<Updater> updater_ptr_;
 };
