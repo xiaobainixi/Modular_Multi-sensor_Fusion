@@ -1,3 +1,5 @@
+#include "tool/DataLoader.h"
+
 #include "FusionSystem.h"
 
 int main() {
@@ -8,15 +10,28 @@ int main() {
     
     FusionSystem fusion_system(param_ptr, state_manager_ptr, data_manager_ptr);
 
-    IMUData imu_data;
-    imu_data.time_ = 250;
-    data_manager_ptr->Input(imu_data);
-    imu_data.time_ = 251;
-    data_manager_ptr->Input(imu_data);
-
-    
+    DataLoader data_loader("../data/");
     while(1) {
-        usleep(100);
+        InputData input_data = data_loader.GetNextData();
+        if (input_data.data_type_ == 0) {
+            IMUData imu_data;
+            imu_data.time_ = input_data.time_;
+            imu_data.a_ = input_data.a_;
+            imu_data.w_ = input_data.w_;
+            data_manager_ptr->Input(imu_data);
+        } else if (input_data.data_type_ == 1) {
+
+        } else if (input_data.data_type_ == 2) {
+            GPSData gps_data;
+            gps_data.time_ = input_data.time_;
+            gps_data.lat_ = input_data.lat_;
+            gps_data.lon_ = input_data.lon_;
+            gps_data.h_ = input_data.h_;
+            data_manager_ptr->Input(gps_data);
+            // todo error add
+        } else if (input_data.data_type_ == 3) {
+            
+        }
     }
     return 0;
 }

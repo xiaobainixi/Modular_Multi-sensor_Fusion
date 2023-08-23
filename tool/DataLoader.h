@@ -2,6 +2,8 @@
 #include <iostream>
 #include <math.h>
 #include <fstream>
+#include <sys/time.h>
+#include <unistd.h>
 
 #include <eigen3/Eigen/Core>
 #include <opencv2/opencv.hpp>
@@ -36,6 +38,8 @@ public:
 
     InputData GetNextData();
 private:
-    std::queue<InputData> datas_;
-    double d2r = 0.017453292519943295;
+    std::queue<InputData> datas_, gps_datas_, imu_datas_, image_datas_, wheel_datas_;
+    double d2r_ = 0.017453292519943295;
+    double last_data_time_ = -1.0;
+    struct timeval t1_, t2_;
 };

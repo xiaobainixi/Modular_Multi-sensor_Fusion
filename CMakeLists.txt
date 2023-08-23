@@ -50,6 +50,7 @@ include_directories(${Pangolin_INCLUDE_DIRS})
 include_directories(
     /opt/local/include   #mac os
     ${PROJECT_SOURCE_DIR}/src
+    ${PROJECT_SOURCE_DIR}
     ${EIGEN3_INCLUDE_DIR}
     ${OpenCV_INCLUDE_DIR}
 )
@@ -69,6 +70,8 @@ add_library(${PROJECT_NAME} SHARED
     src/viewer/Viewer.cpp
 
     src/FusionSystem.cpp
+
+    tool/DataLoader.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}

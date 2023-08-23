@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <Eigen/Core>
@@ -28,9 +29,9 @@ struct WheelIMUData {
 
 struct GPSData {
     double time_ = -1.0;
-    double lat;
-    double lon;
-    double h;
+    double lat_;
+    double lon_;
+    double h_;
 };
 
 struct CameraData {

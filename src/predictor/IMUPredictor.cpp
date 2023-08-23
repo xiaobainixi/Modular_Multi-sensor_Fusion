@@ -16,9 +16,9 @@ void IMUPredictor::Run() {
             cur_state_ptr->C_ = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) * 100.0;
             state_manager_ptr_->PushState(cur_state_ptr);
             last_data_ = cur_data;
-            std::cout << cur_data.time_ << std::endl;
-            std::cout << cur_data.a_.transpose() << std::endl;
-            std::cout << cur_data.w_.transpose() << std::endl;
+            // std::cout << std::setprecision(9) << cur_data.time_ << std::endl;
+            // std::cout << cur_data.a_.transpose() << std::endl;
+            // std::cout << cur_data.w_.transpose() << std::endl;
             usleep(100);
             continue;
         }
@@ -28,9 +28,9 @@ void IMUPredictor::Run() {
             continue;
         }
 
-        std::cout << cur_data.time_ << std::endl;
-        std::cout << cur_data.a_.transpose() << std::endl;
-        std::cout << cur_data.w_.transpose() << std::endl;
+        // std::cout << cur_data.time_ << std::endl;
+        // std::cout << cur_data.a_.transpose() << std::endl;
+        // std::cout << cur_data.w_.transpose() << std::endl;
         std::shared_ptr<State> cur_state_ptr = std::make_shared<State>();
         cur_state_ptr->time_ = cur_data.time_;
 
