@@ -1,6 +1,15 @@
 #pragma once
 #include "Filter.h"
 
+void Filter::ESKFUpdate(
+    const Eigen::MatrixXd & H, const Eigen::MatrixXd & C, const Eigen::MatrixXd & R,
+    Eigen::MatrixXd & Z, Eigen::MatrixXd & C_new, Eigen::VectorXd & X)
+{
+    Eigen::MatrixXd K = C * H.transpose() * (H * C * H.transpose() + R).inverse();
+    C_new = (Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) - K * H) * C;
+    X = K * Z;
+}
+
 void Filter::Update(const std::shared_ptr<State> & state_ptr, const GPSData & gps_data) {
     Eigen::VectorXd X;
     Eigen::MatrixXd K;
@@ -29,7 +38,7 @@ void Filter::Run() {
     // 循环读数据
     while (1)
     {
-        // todo 差值
+        // todo 差值, 时间对其
         std::shared_ptr<State> state_ptr;
         if(!state_manager_ptr_->GetNearestState(state_ptr)) {
             usleep(100);
@@ -44,7 +53,7 @@ void Filter::Run() {
         Update(state_ptr, cur_gps_data);
         result_file << state_ptr->twb_.x() << "," << state_ptr->twb_.y() << "," << state_ptr->twb_.z() << std::endl;
         // std::cout << std::setprecision(9) << cur_gps_data.time_ << std::endl;
-        std::cout << state_ptr->twb_.x() << "," << state_ptr->twb_.y() << "," << state_ptr->twb_.z() << std::endl;
+        std::cout << state_ptr->twb_.transpose() << " " << state_ptr->ba_.transpose() << " " << state_ptr->bg_.transpose() << " " << state_ptr->Vw_.transpose() << std::endl;
         last_gps_data = cur_gps_data;
         usleep(100);
     }

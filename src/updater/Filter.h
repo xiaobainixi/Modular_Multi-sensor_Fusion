@@ -26,11 +26,9 @@ private:
     void Run();
     void DelayedRun();
     void Update(const std::shared_ptr<State> & state_ptr, const GPSData & gps_data);
-    void ESKFUpdate(const Eigen::MatrixXd & H, const Eigen::MatrixXd & C, const Eigen::MatrixXd & R, Eigen::MatrixXd & Z, Eigen::MatrixXd & C_new, Eigen::VectorXd & X) {
-        Eigen::MatrixXd K = C * H.transpose() * (H * C * H.transpose() + R).inverse();
-        C_new = (Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) - K * H) * C;
-        X = K * Z;
-    }
+    void ESKFUpdate(
+        const Eigen::MatrixXd & H, const Eigen::MatrixXd & C, const Eigen::MatrixXd & R,
+        Eigen::MatrixXd & Z, Eigen::MatrixXd & C_new, Eigen::VectorXd & X);
     std::shared_ptr<Parameter> param_ptr_;
     std::shared_ptr<DataManager> data_manager_ptr_;
     std::shared_ptr<StateManager> state_manager_ptr_;
