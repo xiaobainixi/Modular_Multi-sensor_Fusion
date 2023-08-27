@@ -13,8 +13,8 @@ bool GPSObserver::ComputeHZR(
     // 2. compute
     Eigen::Vector3d gps_enu(x, y, z);
     Eigen::Vector3d t_error = gps_enu - state_ptr->twb_;
-    Z = Eigen::VectorXd::Zero(param_ptr_->STATE_DIM);
-    Z.block<3, 1>(param_ptr_->POSI_INDEX, 0) = t_error;
+    Z = Eigen::VectorXd::Zero(3);
+    Z.block<3, 1>(0, 0) = t_error;
     H = H_;
     R = R_;
     return true;

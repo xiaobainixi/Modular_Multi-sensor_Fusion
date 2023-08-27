@@ -69,20 +69,39 @@ public:
         camera_datas_.push_back(camera_data);
     }
 
-    IMUData GetLastIMUData() {
+    bool GetLastIMUData(IMUData & imu_data, double last_data_time = -1.0) {
         std::unique_lock<std::mutex> lock(imu_datas_mtx_);
-        return imu_datas_.empty() ? IMUData() : imu_datas_[imu_datas_.size() - 1];
+        if (imu_datas_.empty() || imu_datas_[imu_datas_.size() - 1].time_ <= last_data_time)
+            return false;
+        imu_data = imu_datas_[imu_datas_.size() - 1];
+        return true;
     }
 
-    WheelData GetLastWheelData() {
-        std::unique_lock<std::mutex> lock(wheel_datas_mtx_);
-        return wheel_datas_.empty() ? WheelData() : wheel_datas_[wheel_datas_.size() - 1];
-    }
-
-    GPSData GetLastGPSData() {
+    bool GetLastGPSData(GPSData & gps_data, double last_data_time = -1.0) {
         std::unique_lock<std::mutex> lock(gps_datas_mtx_);
-        return gps_datas_.empty() ? GPSData() : gps_datas_[gps_datas_.size() - 1];
+        if (gps_datas_.empty() || gps_datas_[gps_datas_.size() - 1].time_ <= last_data_time)
+            return false;
+        gps_data = gps_datas_[gps_datas_.size() - 1];
+        return true;
     }
+
+    bool GetLastWheelData(WheelData & wheel_data, double last_data_time = -1.0) {
+        std::unique_lock<std::mutex> lock(wheel_datas_mtx_);
+        if (wheel_datas_.empty() || wheel_datas_[wheel_datas_.size() - 1].time_ <= last_data_time)
+            return false;
+        wheel_data = wheel_datas_[wheel_datas_.size() - 1];
+        return true;
+    }
+
+    // WheelData GetLastWheelData() {
+    //     std::unique_lock<std::mutex> lock(wheel_datas_mtx_);
+    //     return wheel_datas_.empty() ? WheelData() : wheel_datas_[wheel_datas_.size() - 1];
+    // }
+
+    // GPSData GetLastGPSData() {
+    //     std::unique_lock<std::mutex> lock(gps_datas_mtx_);
+    //     return gps_datas_.empty() ? GPSData() : gps_datas_[gps_datas_.size() - 1];
+    // }
 
     CameraData GetLastCameraData() {
         std::unique_lock<std::mutex> lock(camera_datas_mtx_);

@@ -8,6 +8,8 @@
 #include <eigen3/Eigen/Core>
 #include <opencv2/opencv.hpp>
 
+#include "common/Parameter.h"
+
 struct InputData {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     double time_ = -1.0;
@@ -30,7 +32,7 @@ struct InputData {
 
 class DataLoader {
 public:
-    DataLoader(const std::string & data_path);
+    DataLoader(const std::string & data_path, const std::shared_ptr<Parameter> & param_ptr);
     bool ReadIMU(const std::string & path);
     bool ReadWheel(const std::string & path);
     bool ReadGPS(const std::string & path);
@@ -38,6 +40,7 @@ public:
 
     InputData GetNextData();
 private:
+    std::shared_ptr<Parameter> param_ptr_;
     std::queue<InputData> datas_, gps_datas_, imu_datas_, image_datas_, wheel_datas_;
     double d2r_ = 0.017453292519943295;
     double last_data_time_ = -1.0;

@@ -1,6 +1,7 @@
 #include "DataLoader.h"
 
-DataLoader::DataLoader(const std::string & data_path) {
+DataLoader::DataLoader(const std::string & data_path, const std::shared_ptr<Parameter> & param_ptr) {
+    param_ptr_ = param_ptr;
     ReadIMU(data_path + "/imu.txt");
     ReadGPS(data_path + "/gps.txt");
     ReadWheel(data_path + "/encoder.txt");
@@ -41,7 +42,7 @@ InputData DataLoader::GetNextData() {
         double used_time = (t2_.tv_sec - t1_.tv_sec) + (double)(t2_.tv_usec - t1_.tv_usec)/1000000.0;
         double delta_time = output_data.time_ - last_data_time_ - used_time;
         if (delta_time > 0)
-            usleep(delta_time * 1e6);
+            usleep(delta_time * 1e6 / param_ptr_->play_speed_);
     }
 
     gettimeofday(&t1_, NULL);
@@ -119,7 +120,7 @@ bool DataLoader::ReadGPS(const std::string & path) {
         InputData data;
 
         std::getline(gps_data_ss, temp, ',');
-        data.time_ = std::stod(temp.substr(5, 5)) + std::stod(temp.substr(10, 4)) * 0.0001;;
+        data.time_ = std::stod(temp.substr(5, 5)) + std::stod(temp.substr(10, 4)) * 0.0001;
 
         std::getline(gps_data_ss, temp, ',');
         data.lat_ = std::stod(temp) * d2r_;
@@ -142,7 +143,52 @@ bool DataLoader::ReadGPS(const std::string & path) {
 }
 
 bool DataLoader::ReadWheel(const std::string & path) {
+    std::ifstream wheel_file(path, std::ios::in);
 
+    if (!wheel_file.is_open())
+    {
+        std::cerr << "failure to open wheel file" << std::endl;
+        return false;
+    }
+
+    std::string wheel_data_line;
+    std::string temp;
+
+    double last_left_encoder_data = 0.0, last_right_encoder_data = 0.0, last_encoder_data_time = -1.0;
+    while (std::getline(wheel_file, wheel_data_line))
+    {
+        std::stringstream wheel_data_ss;
+        wheel_data_ss << wheel_data_line;
+        
+
+        std::getline(wheel_data_ss, temp, ',');
+        double cur_encoder_data_time = std::stod(temp.substr(5, 5)) + std::stod(temp.substr(10, 4)) * 0.0001;
+
+        std::getline(wheel_data_ss, temp, ',');
+        double cur_left_encoder_data = std::stod(temp);
+        std::getline(wheel_data_ss, temp, ',');
+        double cur_right_encoder_data = std::stod(temp);
+
+        if (last_encoder_data_time < 0.0) {
+            last_encoder_data_time = cur_encoder_data_time;
+            last_left_encoder_data = cur_left_encoder_data;
+            last_right_encoder_data = cur_right_encoder_data;
+            continue;
+        }
+
+        InputData data;
+        data.time_ = cur_encoder_data_time;
+        data.data_type_ = 1;
+        double delta_time = cur_encoder_data_time - last_encoder_data_time;
+        data.lv_ = (cur_left_encoder_data - last_left_encoder_data) * param_ptr_->encoder_resolution_ / delta_time;
+        data.rv_ = (cur_right_encoder_data - last_right_encoder_data) * param_ptr_->encoder_resolution_ / delta_time;
+        wheel_datas_.push(data);
+
+        last_encoder_data_time = cur_encoder_data_time;
+        last_left_encoder_data = cur_left_encoder_data;
+        last_right_encoder_data = cur_right_encoder_data;
+    }
+    wheel_file.close();
 }
 
 bool DataLoader::ReadImage(const std::string & path) {

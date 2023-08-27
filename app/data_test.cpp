@@ -10,7 +10,7 @@ int main() {
     
     FusionSystem fusion_system(param_ptr, state_manager_ptr, data_manager_ptr);
 
-    DataLoader data_loader("../data/");
+    DataLoader data_loader("../data/", param_ptr);
     while(1) {
         InputData input_data = data_loader.GetNextData();
         if (input_data.data_type_ == 0) {
@@ -20,7 +20,11 @@ int main() {
             imu_data.w_ = input_data.w_;
             data_manager_ptr->Input(imu_data);
         } else if (input_data.data_type_ == 1) {
-
+            WheelData wheel_data;
+            wheel_data.time_ = input_data.time_;
+            wheel_data.lv_ = input_data.lv_;
+            wheel_data.rv_ = input_data.rv_;
+            data_manager_ptr->Input(wheel_data);
         } else if (input_data.data_type_ == 2) {
             GPSData gps_data;
             gps_data.time_ = input_data.time_;

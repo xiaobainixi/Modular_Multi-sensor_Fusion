@@ -3,8 +3,8 @@
 // todo 数个一起来还是一个一个，数个一起来比较好
 void IMUPredictor::Run() {
     while(1) {
-        IMUData cur_data = data_manager_ptr_->GetLastIMUData();
-        if (cur_data.time_ <= 0.0) {
+        IMUData cur_data;
+        if (!data_manager_ptr_->GetLastIMUData(cur_data, last_data_.time_)) {
             usleep(100);
             continue;
         }
@@ -13,7 +13,7 @@ void IMUPredictor::Run() {
         if (last_data_.time_ <= 0.0) {
             std::shared_ptr<State> cur_state_ptr = std::make_shared<State>();
             cur_state_ptr->time_ = cur_data.time_;
-            cur_state_ptr->C_ = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) * 1.0e-4;
+            cur_state_ptr->C_ = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) * 1.0e4;
             state_manager_ptr_->PushState(cur_state_ptr);
             last_data_ = cur_data;
             // std::cout << std::setprecision(9) << cur_data.time_ << std::endl;
@@ -86,13 +86,13 @@ void IMUPredictor::Run() {
 
         cur_state_ptr->C_ = Phi * last_state_ptr->C_ * Phi.transpose() + Phi * G * param_ptr_->imu_continuous_noise_cov_ * G.transpose() * Phi.transpose() * delta_t;
 
-        // Eigen::MatrixXd state_cov_fixed = 
-        //     (cur_state_ptr->C_ + cur_state_ptr->C_.transpose()) / 2.0;
-        // cur_state_ptr->C_ = state_cov_fixed;
+        Eigen::MatrixXd state_cov_fixed = 
+            (cur_state_ptr->C_ + cur_state_ptr->C_.transpose()) / 2.0;
+        cur_state_ptr->C_ = state_cov_fixed;
 
         state_manager_ptr_->PushState(cur_state_ptr);
         last_data_ = cur_data;
-
+        // std::cout << std::setprecision(9) << cur_state_ptr->time_ << " " << cur_state_ptr->twb_.transpose() << " " << cur_state_ptr->ba_.transpose() << " " << cur_state_ptr->bg_.transpose() << " " << cur_state_ptr->Vw_.transpose() << std::endl;
         usleep(100);
     }
     
