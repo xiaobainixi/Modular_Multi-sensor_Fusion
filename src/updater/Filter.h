@@ -11,8 +11,9 @@ class Filter : public Updater
 {
 public:
     Filter(const std::shared_ptr<Parameter> &param_ptr, const std::shared_ptr<DataManager> &data_manager_ptr,
-           const std::shared_ptr<StateManager> &state_manager_ptr)
+           const std::shared_ptr<StateManager> &state_manager_ptr, std::shared_ptr<Viewer> viewer_ptr = nullptr)
     {
+        viewer_ptr_ = viewer_ptr;
         param_ptr_ = param_ptr;
         data_manager_ptr_ = data_manager_ptr;
         state_manager_ptr_ = state_manager_ptr;

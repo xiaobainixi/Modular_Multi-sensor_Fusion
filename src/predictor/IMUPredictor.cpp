@@ -72,8 +72,8 @@ void IMUPredictor::Run() {
         F.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->ACC_BIAS_INDEX_STATE_) = -last_state_ptr->Rbw_.transpose();
 
         F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->VEL_INDEX_STATE_) = Eigen::Matrix3d::Identity();
-        F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->ACC_BIAS_INDEX_STATE_) = -0.5 * delta_t * last_state_ptr->Rbw_.transpose();
-        F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->ORI_INDEX_STATE_) = 0.5 * delta_t * last_state_ptr->Rbw_.transpose() * Converter::Skew(cur_data.a_ - last_state_ptr->ba_);
+        // F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->ACC_BIAS_INDEX_STATE_) = -0.5 * delta_t * last_state_ptr->Rbw_.transpose();
+        // F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->ORI_INDEX_STATE_) = 0.5 * delta_t * last_state_ptr->Rbw_.transpose() * Converter::Skew(cur_data.a_ - last_state_ptr->ba_);
 
         Eigen::MatrixXd G = Eigen::MatrixXd::Zero(param_ptr_->STATE_DIM, 12);
         G.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, 0) = -Eigen::Matrix3d::Identity();
@@ -82,7 +82,7 @@ void IMUPredictor::Run() {
         G.block<3, 3>(param_ptr_->ACC_BIAS_INDEX_STATE_, 9) = Eigen::Matrix3d::Identity();
 
         Eigen::MatrixXd Phi = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) + F * delta_t;
-        Eigen::MatrixXd Bk = G * delta_t;
+        // Eigen::MatrixXd Bk = G * delta_t;
 
         cur_state_ptr->C_ = Phi * last_state_ptr->C_ * Phi.transpose() + Phi * G * param_ptr_->imu_continuous_noise_cov_ * G.transpose() * Phi.transpose() * delta_t;
 
@@ -92,6 +92,9 @@ void IMUPredictor::Run() {
 
         state_manager_ptr_->PushState(cur_state_ptr);
         last_data_ = cur_data;
+
+        if (viewer_ptr_)
+            viewer_ptr_->DrawWheelPose(cur_state_ptr->Rbw_.transpose(), cur_state_ptr->twb_);
         // std::cout << std::setprecision(9) << cur_state_ptr->time_ << " " << cur_state_ptr->twb_.transpose() << " " << cur_state_ptr->ba_.transpose() << " " << cur_state_ptr->bg_.transpose() << " " << cur_state_ptr->Vw_.transpose() << std::endl;
         usleep(100);
     }

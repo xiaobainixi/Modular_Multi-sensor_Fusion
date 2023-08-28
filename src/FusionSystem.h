@@ -16,11 +16,11 @@ public:
         data_manager_ptr_ = data_manager_ptr;
         viewer_ptr_ = std::make_shared<Viewer>();
         {
-            predictor_ptr_ = std::make_shared<IMUPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_);
+            predictor_ptr_ = std::make_shared<IMUPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
         }
 
         {
-            updater_ptr_ = std::make_shared<Filter>(param_ptr_, data_manager_ptr_, state_manager_ptr_);
+            updater_ptr_ = std::make_shared<Filter>(param_ptr_, data_manager_ptr_, state_manager_ptr_, viewer_ptr_);
         }
     }
 

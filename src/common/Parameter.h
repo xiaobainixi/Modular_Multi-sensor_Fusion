@@ -8,6 +8,7 @@
 
 class Parameter {
 public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Parameter(const std::string & file) {
         imu_continuous_noise_cov_ =
             Eigen::Matrix<double, 12, 12>::Zero();
@@ -19,6 +20,7 @@ public:
             Eigen::Matrix3d::Identity() * acc_noise_;
         imu_continuous_noise_cov_.block<3, 3>(9, 9) =
             Eigen::Matrix3d::Identity() * acc_bias_noise_;
+            std::cout << imu_continuous_noise_cov_ << std::endl;
     }
     
 

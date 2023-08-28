@@ -16,4 +16,5 @@ public:
 protected:
     virtual void Run() = 0;
     std::shared_ptr<std::thread> run_thread_ptr_;
+    std::shared_ptr<Viewer> viewer_ptr_;
 };
