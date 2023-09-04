@@ -19,13 +19,13 @@ public:
     Eigen::MatrixXd C_;
     Eigen::Vector3d Vw_ = Eigen::Vector3d::Zero();
     Eigen::Vector3d twb_ = Eigen::Vector3d::Zero();
-    Eigen::Matrix3d Rbw_ = Eigen::Matrix3d::Identity();
+    Eigen::Matrix3d Rwb_ = Eigen::Matrix3d::Identity();
     Eigen::Vector3d ba_ = Eigen::Vector3d::Zero();
     Eigen::Vector3d bg_ = Eigen::Vector3d::Zero();
 
     void Update(std::shared_ptr<Parameter> param_ptr, const Eigen::VectorXd & X, const Eigen::MatrixXd & C_new) {
         if (param_ptr->state_type_ == 0) {
-            Rbw_ = Converter::ExpSO3(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rbw_;
+            Rwb_ = Converter::ExpSO3(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
             Vw_ += X.block<3, 1>(param_ptr->VEL_INDEX_STATE_, 0);
             twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);
             ba_ += X.block<3, 1>(param_ptr->ACC_BIAS_INDEX_STATE_, 0);

@@ -41,25 +41,25 @@ public:
     int ACC_BIAS_INDEX_STATE_ = 12;
 
     // imu
-    double gyro_noise_ = 0.05;
-    double gyro_bias_noise_ = 0.01;
-    double acc_noise_ = 0.5;
-    double acc_bias_noise_ = 0.1;
+    double gyro_noise_ = 0.0001;
+    double gyro_bias_noise_ = 0.0001;
+    double acc_noise_ = 0.008;
+    double acc_bias_noise_ = 0.008;
 
     // gps
-    double gps_x_noise_ = 0.2;
-    double gps_y_noise_ = 0.2;
-    double gps_z_noise_ = 0.5;
+    double gps_x_noise_ = 0.9;
+    double gps_y_noise_ = 0.9;
+    double gps_z_noise_ = 0.9;
     Eigen::Matrix<double, 12, 12> imu_continuous_noise_cov_;
 
     // wheel
     double encoder_resolution_ = 0.00047820240382508;
-    double wheel_x_noise_ = 0.0002;
-    double wheel_y_noise_ = 0.00002;
-    double wheel_z_noise_ = 0.00002;
+    double wheel_x_noise_ = 0.02;
+    double wheel_y_noise_ = 0.02;
+    double wheel_z_noise_ = 0.02;
     bool fix_yz_in_eskf_ = false;
 
 
     // dataloader
-    double play_speed_ = 3.0;
+    double play_speed_ = 6.0;
 };
