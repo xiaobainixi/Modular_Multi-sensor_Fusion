@@ -17,9 +17,9 @@ public:
         H_ = Eigen::MatrixXd::Zero(3, param_ptr->STATE_DIM);
 
         R_ = Eigen::MatrixXd::Zero(3, 3);
-        R_(0, 0) = param_ptr->wheel_x_noise_;
-        R_(1, 1) = param_ptr->wheel_y_noise_;
-        R_(2, 2) = param_ptr->wheel_z_noise_;
+        R_(0, 0) = param_ptr->wheel_x_noise_ * param_ptr->wheel_x_noise_;
+        R_(1, 1) = param_ptr->wheel_y_noise_ * param_ptr->wheel_y_noise_;
+        R_(2, 2) = param_ptr->wheel_z_noise_ * param_ptr->wheel_z_noise_;
     }
 
     bool ComputeHZR(const WheelData & wheel_data, const std::shared_ptr<State> & state_ptr, Eigen::MatrixXd & H, Eigen::MatrixXd & Z, Eigen::MatrixXd &R);

@@ -19,9 +19,9 @@ public:
         H_.block<3, 3>(0, param_ptr->POSI_INDEX) = Eigen::Matrix3d::Identity();
 
         R_ = Eigen::MatrixXd::Zero(3, 3);
-        R_(0, 0) = param_ptr->gps_x_noise_;
-        R_(1, 1) = param_ptr->gps_y_noise_;
-        R_(2, 2) = param_ptr->gps_z_noise_;
+        R_(0, 0) = param_ptr->gps_x_noise_ * param_ptr->gps_x_noise_;
+        R_(1, 1) = param_ptr->gps_y_noise_ * param_ptr->gps_y_noise_;
+        R_(2, 2) = param_ptr->gps_z_noise_ * param_ptr->gps_z_noise_;
     }
 
     bool ComputeHZR(const GPSData & gps_data, const std::shared_ptr<State> & state_ptr, Eigen::MatrixXd & H, Eigen::MatrixXd & Z, Eigen::MatrixXd &R);

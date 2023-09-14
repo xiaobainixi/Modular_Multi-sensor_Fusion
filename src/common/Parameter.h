@@ -13,13 +13,13 @@ public:
         imu_continuous_noise_cov_ =
             Eigen::Matrix<double, 12, 12>::Zero();
         imu_continuous_noise_cov_.block<3, 3>(0, 0) =
-            Eigen::Matrix3d::Identity() * gyro_noise_;
+            Eigen::Matrix3d::Identity() * gyro_noise_ * gyro_noise_;
         imu_continuous_noise_cov_.block<3, 3>(3, 3) =
-            Eigen::Matrix3d::Identity() * gyro_bias_noise_;
+            Eigen::Matrix3d::Identity() * gyro_bias_noise_ * gyro_bias_noise_;
         imu_continuous_noise_cov_.block<3, 3>(6, 6) =
-            Eigen::Matrix3d::Identity() * acc_noise_;
+            Eigen::Matrix3d::Identity() * acc_noise_ * acc_noise_;
         imu_continuous_noise_cov_.block<3, 3>(9, 9) =
-            Eigen::Matrix3d::Identity() * acc_bias_noise_;
+            Eigen::Matrix3d::Identity() * acc_bias_noise_ * acc_bias_noise_;
             std::cout << imu_continuous_noise_cov_ << std::endl;
     }
     
@@ -41,22 +41,22 @@ public:
     int ACC_BIAS_INDEX_STATE_ = 12;
 
     // imu
-    double gyro_noise_ = 0.0001;
-    double gyro_bias_noise_ = 0.0001;
-    double acc_noise_ = 0.008;
-    double acc_bias_noise_ = 0.008;
+    double gyro_noise_ = 2.6e-03;
+    double gyro_bias_noise_ = 2.6e-04;
+    double acc_noise_ = 2.6e-02;
+    double acc_bias_noise_ = 2.6e-03;
 
     // gps
-    double gps_x_noise_ = 0.9;
-    double gps_y_noise_ = 0.9;
-    double gps_z_noise_ = 0.9;
+    double gps_x_noise_ = 0.001;
+    double gps_y_noise_ = 0.001;
+    double gps_z_noise_ = 0.001;
     Eigen::Matrix<double, 12, 12> imu_continuous_noise_cov_;
 
     // wheel
     double encoder_resolution_ = 0.00047820240382508;
-    double wheel_x_noise_ = 0.02;
-    double wheel_y_noise_ = 0.02;
-    double wheel_z_noise_ = 0.02;
+    double wheel_x_noise_ = 0.001;
+    double wheel_y_noise_ = 0.001;
+    double wheel_z_noise_ = 0.001;
     bool fix_yz_in_eskf_ = false;
 
 
