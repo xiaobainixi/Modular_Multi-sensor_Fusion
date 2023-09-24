@@ -21,9 +21,6 @@ void IMUPredictor::Run() {
             cur_state_ptr->C_.block<3, 3>(param_ptr_->ACC_BIAS_INDEX_STATE_, param_ptr_->ACC_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
             state_manager_ptr_->PushState(cur_state_ptr);
             last_data_ = cur_data;
-            // std::cout << std::setprecision(9) << cur_data.time_ << std::endl;
-            // std::cout << cur_data.a_.transpose() << std::endl;
-            // std::cout << cur_data.w_.transpose() << std::endl;
             usleep(100);
             continue;
         }
@@ -33,9 +30,6 @@ void IMUPredictor::Run() {
             continue;
         }
 
-        // std::cout << cur_data.time_ << std::endl;
-        // std::cout << cur_data.a_.transpose() << std::endl;
-        // std::cout << cur_data.w_.transpose() << std::endl;
         std::shared_ptr<State> last_state_ptr;
         state_manager_ptr_->GetNearestState(last_state_ptr);
         std::shared_ptr<State> cur_state_ptr = std::make_shared<State>();
@@ -87,7 +81,7 @@ void IMUPredictor::Run() {
 
         Eigen::MatrixXd Phi = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) + F * delta_t;
 
-        cur_state_ptr->C_ = Phi * last_state_ptr->C_ * Phi.transpose() + G * param_ptr_->imu_continuous_noise_cov_ * G.transpose();
+        cur_state_ptr->C_ = Phi * last_state_ptr->C_ * Phi.transpose() + G * param_ptr_->imu_dispersed_noise_cov_ * G.transpose();
 
         Eigen::MatrixXd state_cov_fixed = 
             (cur_state_ptr->C_ + cur_state_ptr->C_.transpose()) / 2.0;
@@ -98,7 +92,6 @@ void IMUPredictor::Run() {
 
         if (viewer_ptr_)
             viewer_ptr_->DrawWheelPose(cur_state_ptr->Rwb_, cur_state_ptr->twb_);
-        // std::cout << std::setprecision(9) << cur_state_ptr->time_ << " " << cur_state_ptr->twb_.transpose() << " " << cur_state_ptr->ba_.transpose() << " " << cur_state_ptr->bg_.transpose() << " " << cur_state_ptr->Vw_.transpose() << std::endl;
         usleep(100);
     }
     

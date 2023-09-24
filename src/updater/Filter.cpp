@@ -69,8 +69,6 @@ void Filter::Run() {
         WheelData cur_wheel_data;
         if (data_manager_ptr_->GetLastWheelData(cur_wheel_data, last_wheel_data.time_)) {
             Update(state_ptr, cur_wheel_data);
-            // std::cout << std::setprecision(9) << cur_wheel_data.time_ << std::endl;
-            // result_file << state_ptr->twb_.x() << "," << state_ptr->twb_.y() << "," << state_ptr->twb_.z() << std::endl;
             last_wheel_data = cur_wheel_data;
         }
 
@@ -78,8 +76,6 @@ void Filter::Run() {
         if (data_manager_ptr_->GetLastGPSData(cur_gps_data, last_gps_data.time_)) {
             Update(state_ptr, cur_gps_data);
             result_file << state_ptr->twb_.x() << "," << state_ptr->twb_.y() << "," << state_ptr->twb_.z() << std::endl;
-            // std::cout << std::setprecision(9) << cur_gps_data.time_ << " " << (state_ptr->Rwb_ * state_ptr->Vw_).transpose() << std::endl;
-            // std::cout << state_ptr->time_ << " " << state_ptr->twb_.transpose() << " " << state_ptr->ba_.transpose() << " " << state_ptr->bg_.transpose() << " " << state_ptr->Vw_.transpose() << std::endl;
             last_gps_data = cur_gps_data;
         }
 

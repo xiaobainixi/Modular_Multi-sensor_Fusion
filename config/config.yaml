@@ -1,0 +1,28 @@
+%YAML:1.0
+
+# 0 kf 1 ba
+fusion_model: 0
+
+use_imu: 1
+wheel_use_type: 2
+use_gps: 1
+use_camera: 1
+
+# sensor conv
+gyro_noise: 2.6e-03
+gyro_bias_noise: 2.6e-04
+acc_noise: 2.6e-02
+acc_bias_noise: 2.6e-03
+
+gps_x_noise: 0.001
+gps_y_noise: 0.001
+gps_z_noise: 0.001
+
+encoder_resolution: 0.00047820240382508
+wheel_x_noise: 0.001
+wheel_y_noise: 0.001
+wheel_z_noise: 0.001
+fix_yz_in_eskf: 0
+
+# data
+play_speed: 6.0
