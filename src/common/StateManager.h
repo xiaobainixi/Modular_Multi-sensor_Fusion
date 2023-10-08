@@ -37,6 +37,12 @@ public:
     }
 };
 
+struct CompareTime {
+	bool operator() (const std::shared_ptr<State>& s1,  const std::shared_ptr<State>& s2) {	
+		return s1->time_ < s2->time_;
+	}
+};
+
 class StateManager {
 public:
     StateManager(std::shared_ptr<Parameter> param_ptr) {
@@ -61,6 +67,13 @@ public:
         if (!states_.empty() && state->time_ <= states_[states_.size() - 1]->time_)
             return false;
         states_.push_back(state);
+
+        // 只保留最近10s状态,二分查找下，从头找也行不差很多
+        std::shared_ptr<State> tar = std::make_shared<State>();
+        tar->time_ = state->time_ - 10.0;
+        auto iter = lower_bound(states_.begin(), states_.end(), tar, CompareTime());
+        if (iter != states_.begin())
+            states_ = std::vector<std::shared_ptr<State>>(iter, states_.end());
         return true;
     }
 

@@ -140,7 +140,7 @@ public:
     int fusion_model_ = 0;
     bool use_imu_ = true;
     // 0 unused 1 predict 2 obs
-    int wheel_use_type_ = 2;
+    int wheel_use_type_ = 0;
     bool use_gps_ = false;
     bool use_camera_ = false;
 

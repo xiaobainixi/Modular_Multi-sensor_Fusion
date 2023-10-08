@@ -31,8 +31,8 @@ public:
 private:
     void Run();
     void DelayedRun();
-    void Update(const std::shared_ptr<State> & state_ptr, const GPSData & gps_data);
-    void Update(const std::shared_ptr<State> & state_ptr, const WheelData & wheel_data);
+    void UpdateFromGPS(const std::shared_ptr<State> & state_ptr);
+    void UpdateFromWheel(const std::shared_ptr<State> & state_ptr);
     void ESKFUpdate(
         const Eigen::MatrixXd & H, const Eigen::MatrixXd & C, const Eigen::MatrixXd & R,
         Eigen::MatrixXd & Z, Eigen::MatrixXd & C_new, Eigen::VectorXd & X);
@@ -43,4 +43,8 @@ private:
     // todo add
     std::shared_ptr<GPSObserver> gps_observer_ptr_;
     std::shared_ptr<WheelObserver> wheel_observer_ptr_;
+
+    // tmp data
+    GPSData last_gps_data;
+    WheelData last_wheel_data;
 };
