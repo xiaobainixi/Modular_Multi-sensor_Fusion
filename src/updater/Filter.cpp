@@ -55,6 +55,32 @@ void Filter::UpdateFromWheel(const std::shared_ptr<State> & state_ptr) {
     last_wheel_data.time_ = cur_wheel_data.time_;
 }
 
+void Filter::UpdateFromGPSWheel(const std::shared_ptr<State> & state_ptr) {
+    if (!gps_wheel_observer_ptr_)
+        return;
+    GPSData cur_gps_data;
+    if (!data_manager_ptr_->GetLastGPSData(cur_gps_data, last_gps_data.time_) || std::abs(state_ptr->time_ - cur_gps_data.time_) > 0.01)
+        return;
+    WheelData cur_wheel_data;
+    if (!data_manager_ptr_->GetLastWheelData(cur_wheel_data, last_wheel_data.time_) || std::abs(state_ptr->time_ - cur_wheel_data.time_) > 0.01)
+        return;
+
+    Eigen::VectorXd X;
+    Eigen::MatrixXd K;
+    Eigen::MatrixXd H;
+    Eigen::MatrixXd Z;
+    Eigen::MatrixXd R;
+    Eigen::MatrixXd C_new;
+    // 1. 计算ESKF需要的数据
+    gps_wheel_observer_ptr_->ComputeHZR(cur_wheel_data, cur_gps_data, state_ptr, H, Z, R);
+    // 2. 计算更新量
+    ESKFUpdate(H, state_ptr->C_, R, Z, C_new, X);
+    // 3. 更新
+    state_ptr->Update(param_ptr_, X, C_new);
+    last_gps_data.time_ = cur_gps_data.time_;
+    last_wheel_data.time_ = cur_wheel_data.time_;
+}
+
 // todo add other sensor
 void Filter::Run() {
     std::ofstream result_file;    //用ofstream类定义输入对象
@@ -70,8 +96,11 @@ void Filter::Run() {
             continue;
         }
 
-        UpdateFromWheel(state_ptr);
-        UpdateFromGPS(state_ptr);
+        // 用这个或者下面的，同样参数下可以对比下区别
+        // UpdateFromWheel(state_ptr);
+        // UpdateFromGPS(state_ptr);
+
+        UpdateFromGPSWheel(state_ptr);
         // result_file << state_ptr->twb_.x() << "," << state_ptr->twb_.y() << "," << state_ptr->twb_.z() << std::endl;
         usleep(100);
     }

@@ -9,7 +9,7 @@
 
 #include "common/StateManager.h"
 #include "common/DataManager.h"
-
+#include "viewer/Viewer.h"
 class Observer {
 public:
     Observer() = default;
@@ -18,7 +18,7 @@ public:
 
     Eigen::MatrixXd H_, R_;
 protected:
-    
+    std::shared_ptr<Viewer> viewer_ptr_;
     std::shared_ptr<Parameter> param_ptr_;
     std::shared_ptr<DataManager> data_manager_ptr_;
     std::shared_ptr<StateManager> state_manager_ptr_;

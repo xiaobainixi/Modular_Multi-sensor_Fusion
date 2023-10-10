@@ -7,6 +7,7 @@
 #include "observer/GPSObserver.h"
 #include "observer/WheelObserver.h"
 #include "observer/CameraObserver.h"
+#include "observer/GPSWheelObserver.h"
 
 #include "viewer/Viewer.h"
 

@@ -9,6 +9,8 @@ bool GPSObserver::ComputeHZR(
         coo_trans_ptr_ = std::make_shared<CooTrans>(gps_data.lat_, gps_data.lon_, gps_data.h_);
     else
         coo_trans_ptr_->getENH(gps_data.lat_, gps_data.lon_, gps_data.h_, x, y, z);
+    if (viewer_ptr_)
+        viewer_ptr_->DrawGps(Eigen::Vector3d(x, y, z));
 
     // 2. compute
     Eigen::Vector3d gps_enu(x, y, z);

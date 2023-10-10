@@ -45,6 +45,7 @@ add_library(${PROJECT_NAME} SHARED
     src/observer/GPSObserver.cpp
     src/observer/LidarObserver.cpp
     src/observer/WheelObserver.cpp
+    src/observer/GPSWheelObserver.cpp
 
     src/predictor/IMUPredictor.cpp
     src/predictor/WheelIMUPredictor.cpp
