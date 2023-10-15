@@ -103,11 +103,12 @@ public:
         return true;
     }
 
-    CameraData GetNewCameraData(double last_data_time) {
+    bool GetNewCameraData(CameraData & camera_data, double last_data_time = -1.0) {
         if (camera_data_.time_ <= last_data_time)
-            return CameraData();
+            return false;
         std::unique_lock<std::mutex> lock(camera_datas_mtx_);
-        return camera_data_;
+        camera_data = camera_data_;
+        return true;
     }
 private:
     std::mutex imu_datas_mtx_, wheel_datas_mtx_, gps_datas_mtx_, camera_datas_mtx_;

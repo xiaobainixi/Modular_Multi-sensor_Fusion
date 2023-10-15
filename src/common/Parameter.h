@@ -115,6 +115,13 @@ public:
             play_speed_ = node.real();
         LOG(INFO) << "play_speed: " << play_speed_;
 
+        node = f_settings["data_path"];
+        if (!node.empty() && node.isString())
+            data_path_ = node.string();
+        LOG(INFO) << "data folder: " << data_path_;
+
+        
+
 
         imu_dispersed_noise_cov_ =
             Eigen::Matrix<double, 12, 12>::Zero();
@@ -173,6 +180,15 @@ public:
     double wheel_z_noise_ = 0.001;
     bool fix_yz_in_eskf_ = false;
 
+    // Camera
+    std::string cam_distortion_model;
+    cv::Vec4d cam_intrinsics;
+    cv::Vec4d cam_distortion_coeffs;
+
+    cv::Matx33d R_cam_imu;
+    cv::Vec3d t_cam_imu;
+
     // dataloader
     double play_speed_ = 6.0;
+    std::string data_path_ = "../data/";
 };

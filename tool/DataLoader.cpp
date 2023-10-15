@@ -1,11 +1,11 @@
 #include "DataLoader.h"
 
-DataLoader::DataLoader(const std::string & data_path, const std::shared_ptr<Parameter> & param_ptr) {
+DataLoader::DataLoader(const std::shared_ptr<Parameter> & param_ptr) {
     param_ptr_ = param_ptr;
-    ReadIMU(data_path + "/imu.txt");
-    ReadGPS(data_path + "/gps.txt");
-    ReadWheel(data_path + "/encoder.txt");
-    ReadImage(data_path + "/image.txt");
+    ReadIMU(param_ptr_->data_path_ + "/imu.txt");
+    ReadGPS(param_ptr_->data_path_ + "/gps.txt");
+    ReadWheel(param_ptr_->data_path_ + "/encoder.txt");
+    ReadImage(param_ptr_->data_path_ + "/image.txt");
 
     while (!gps_datas_.empty() || !imu_datas_.empty() || !wheel_datas_.empty() || !image_datas_.empty()) {
         double gps_time = !gps_datas_.empty() ? gps_datas_.front().time_ : DBL_MAX;
@@ -56,7 +56,7 @@ bool DataLoader::ReadIMU(const std::string & path)
 
     if (!imu_file.is_open())
     {
-        std::cerr << "failure to open gps file" << std::endl;
+        std::cerr << "failure to open gps file: " << path << std::endl;
         return false;
     }
 
@@ -106,7 +106,7 @@ bool DataLoader::ReadGPS(const std::string & path) {
 
     if (!gps_file.is_open())
     {
-        std::cerr << "failure to open gps file" << std::endl;
+        std::cerr << "failure to open gps file: " << path << std::endl;
         return false;
     }
 
@@ -147,7 +147,7 @@ bool DataLoader::ReadWheel(const std::string & path) {
 
     if (!wheel_file.is_open())
     {
-        std::cerr << "failure to open wheel file" << std::endl;
+        std::cerr << "failure to open wheel file: " << path << std::endl;
         return false;
     }
 
@@ -192,5 +192,32 @@ bool DataLoader::ReadWheel(const std::string & path) {
 }
 
 bool DataLoader::ReadImage(const std::string & path) {
+    std::ifstream img_file(path, std::ios::in);
 
+    if (!img_file.is_open())
+    {
+        std::cerr << "failure to open wheel file: " << path << std::endl;
+        return false;
+    }
+
+    std::string img_data_line;
+    std::string temp;
+
+    while (std::getline(img_file, img_data_line))
+    {
+        std::stringstream img_data_ss;
+        img_data_ss << img_data_line;
+        std::string tmp;
+        while (std::getline(img_data_ss, tmp, '/'))
+        {
+        }
+
+        InputData data;
+        data.time_ = std::stod(tmp.substr(5, 5)) + std::stod(tmp.substr(10, 3)) * 0.001;
+        data.data_type_ = 3;
+        data.img_path_ = param_ptr_->data_path_ + img_data_line;
+        image_datas_.push(data);
+
+    }
+    img_file.close();
 }

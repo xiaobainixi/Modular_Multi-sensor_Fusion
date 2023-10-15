@@ -27,12 +27,13 @@ struct InputData {
     double h_, h_error_;
 
     // camera
-    cv::Mat image_;
+    std::string img_path_;
+    // cv::Mat image_;
 };
 
 class DataLoader {
 public:
-    DataLoader(const std::string & data_path, const std::shared_ptr<Parameter> & param_ptr);
+    DataLoader(const std::shared_ptr<Parameter> & param_ptr);
     bool ReadIMU(const std::string & path);
     bool ReadWheel(const std::string & path);
     bool ReadGPS(const std::string & path);

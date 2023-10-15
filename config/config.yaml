@@ -25,4 +25,5 @@ wheel_z_noise: 0.1
 fix_yz_in_eskf: 0
 
 # data
-play_speed: 6.0
+play_speed: 1.0
+data_path: /home/l/slam/data/

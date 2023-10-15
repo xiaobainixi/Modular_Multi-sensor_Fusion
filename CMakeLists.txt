@@ -51,6 +51,8 @@ add_library(${PROJECT_NAME} SHARED
     src/predictor/WheelIMUPredictor.cpp
     src/predictor/WheelPredictor.cpp
 
+    src/visual/ImageProcessor.cpp
+
     src/updater/Filter.cpp
 
     src/viewer/Viewer.cpp

@@ -9,6 +9,8 @@
 #include "observer/CameraObserver.h"
 #include "observer/GPSWheelObserver.h"
 
+#include "visual/ImageProcessor.h"
+
 #include "viewer/Viewer.h"
 
 class Updater {

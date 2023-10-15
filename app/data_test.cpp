@@ -10,7 +10,7 @@ int main() {
     
     FusionSystem fusion_system(param_ptr, state_manager_ptr, data_manager_ptr);
 
-    DataLoader data_loader("../data/", param_ptr);
+    DataLoader data_loader(param_ptr);
     while(1) {
         InputData input_data = data_loader.GetNextData();
         if (input_data.data_type_ == 0) {
@@ -34,7 +34,18 @@ int main() {
             data_manager_ptr->Input(gps_data);
             // todo error add
         } else if (input_data.data_type_ == 3) {
+            CameraData camera_data;
+            camera_data.time_ = input_data.time_;
+            camera_data.image_ = cv::imread(input_data.img_path_, 2);
             
+            // cv::imshow("aaaa", camera_data.image_);
+            // cv::waitKey(1);
+            if (!camera_data.image_.empty()) {
+                // cv::cvtColor(camera_data.image_, camera_data.image_, CV_BayerRG2RGB);
+                camera_data.image_ = camera_data.image_.rowRange(0, camera_data.image_.rows / 2);
+                data_manager_ptr->Input(camera_data);
+            }
+                
         }
     }
     return 0;

@@ -26,6 +26,8 @@ public:
 
         gps_wheel_observer_ptr_ = std::make_shared<GPSWheelObserver>(param_ptr, data_manager_ptr, state_manager_ptr, viewer_ptr_);
 
+        image_processor_ptr_ = std::make_shared<ImageProcessor>(param_ptr, data_manager_ptr, state_manager_ptr);
+
         run_thread_ptr_ = std::make_shared<std::thread>(&Filter::Run, this);
     }
 
@@ -47,6 +49,7 @@ private:
     std::shared_ptr<GPSObserver> gps_observer_ptr_;
     std::shared_ptr<WheelObserver> wheel_observer_ptr_;
     std::shared_ptr<GPSWheelObserver> gps_wheel_observer_ptr_;
+    std::shared_ptr<ImageProcessor> image_processor_ptr_;
 
     // tmp data
     GPSData last_gps_data;
