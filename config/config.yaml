@@ -26,4 +26,4 @@ fix_yz_in_eskf: 0
 
 # data
 play_speed: 1.0
-data_path: /home/l/slam/data/
+data_path: /home/fengbro/book_ws/Modular_Multi-sensor_Fusion/data

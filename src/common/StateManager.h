@@ -16,7 +16,7 @@ public:
     // todo 是否有必要加锁
     // std::mutex state_mtx_;
     double time_;
-    Eigen::MatrixXd C_;
+    Eigen::MatrixXd C_;  // 协方差矩阵
     Eigen::Vector3d Vw_ = Eigen::Vector3d::Zero();
     Eigen::Vector3d twb_ = Eigen::Vector3d::Zero();
     Eigen::Matrix3d Rwb_ = Eigen::Matrix3d::Identity();
