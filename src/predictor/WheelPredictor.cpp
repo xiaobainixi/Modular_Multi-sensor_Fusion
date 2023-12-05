@@ -30,60 +30,71 @@ void WheelPredictor::Run() {
             continue;
         }
 
-        // note: 轮速计的数据是左轮速和右轮速，需要转换成线速度和角速度
-        double 
+        // note: 轮速计的数据是左轮速和右轮速，需要转换成线速度和角速度1英寸d                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+        // note: 根据原文，后轮就是汽车中心，车轮使用18英寸的轮胎，直径为45.72cm，半径r = 22.86cm
+        // note: encoder是增量式的，所以需要用现在的值减去上一个值，得到增量
+        // 计算增量
+        double delta_time = cur_data.time_ - last_data_.time_;
+        double l_encoder_delta = cur_data.lv_ - last_data_.lv_;
+        double r_encoder_delta = cur_data.lv_ - last_data_.lv_;
 
+        const double wheel_base = 1.52439; 
+        const double l_d = 0.623479;
+        const double r_d = 0.622806;
+        // 计算左右轮走过的距离delta dist：计算转过的角度，pi * D * delta / 4096
+        double l_dd = M_PI * l_d * l_encoder_delta / 4096;
+        double r_dd = M_PI * r_d * r_encoder_delta / 4096;
+        double l_v = l_dd / delta_time;
+        double r_v = r_dd / delta_time;
+        // 根据速度公式计算速度
+        double delta_dist = (l_dd + r_dd) / 2;
+        double delta_angle = (r_dd - l_dd) / wheel_base;
+        // 计算线速度和角速度
+        double v = (l_v + r_v) / 2;
+        double w = (rv - lv) / wheel_base;
+
+        // note: v是线速度，在车中，只观测x轴方向的速度
+        // 将速度包装成向量的形式
+        Eigen::Vector3d velo_vec = [v, 0, 0];   // x, y, z 三个轴的线速度
+        Eigen::Vector3d omega_vec = [0, 0, w]; // x, y, z 三个轴的角速度
+
+        // 需要根据外参，将速度转换为body坐标系的速度，目前假设body坐标系在后轴中心
+        // Dead Reckoning
         std::shared_ptr<State> last_state_ptr;
         state_manager_ptr_->GetNearestState(last_state_ptr);
+
+        
+        // 计算当前状态
         std::shared_ptr<State> cur_state_ptr = std::make_shared<State>();
+
+        
         cur_state_ptr->time_ = cur_data.time_;
-        cur_state_ptr->ba_ = last_state_ptr->ba_;
-        cur_state_ptr->bg_ = last_state_ptr->bg_;
 
-        //-------------------------------------------------------------------------------------------------------------
-        // 计算当前状态的角度
-        Eigen::Vector3d cur_unbias_angular_vel = cur_data.w_ + last_state_ptr->bg_;
-        Eigen::Vector3d last_unbias_angular_vel = last_data_.w_ + last_state_ptr->bg_;
-        Eigen::Vector3d angular_delta = 0.5 * (cur_unbias_angular_vel + last_unbias_angular_vel) * delta_t;
-
-        cur_state_ptr->Rwb_ =  last_state_ptr->Rwb_ * Eigen::AngleAxisd(angular_delta.norm(), angular_delta.normalized()).toRotationMatrix();
-
-        //-------------------------------------------------------------------------------------------------------------
-        // 计算当前状态的速度
-        Eigen::Vector3d last_v, avg_a;
-        Eigen::Vector3d cur_unbias_a = cur_state_ptr->Rwb_ * (cur_data.a_ + last_state_ptr->ba_) + gw_;
-        Eigen::Vector3d last_unbias_a = last_state_ptr->Rwb_ * (last_data_.a_ + last_state_ptr->ba_) + gw_;
-
-        last_v = last_state_ptr->Vw_;
-        avg_a = 0.5 * (cur_unbias_a + last_unbias_a);
-        cur_state_ptr->Vw_ = last_v + delta_t * avg_a;
-
-        //---------------------------------------------------------------------------------------------------
-        // 使用计算出的速度算位置变化
-        cur_state_ptr->twb_ = last_state_ptr->twb_ + delta_t * last_v + 0.5 * avg_a * delta_t * delta_t;
+        // 世界坐标系下的速度
+        cur_state_ptr->Vw_ = last_state_ptr->Rwb_ * velo_vec;
+        // 世界坐标系的位置
+        cur_state_ptr->twb_ = last_state_ptr->twb_ + cur_state_ptr->Vw_ * delta_time;
+        // 世界坐标系下的角度
+        cur_state_ptr->Rwb_ = last_state_ptr->Rwb_ * Sophus::SO3d::exp(omega_vec * dt);
 
         //---------------------------------------------------------------------------------------------------
         // 计算协方差矩阵
+        // note: 这里既要考虑速度，又要考虑角度（假设角度的观测是准的）
+        // note: 同时还要考虑速度和角度的误差，构建协方差矩阵
+        // note: F是状态转移矩阵，G是噪声转移矩阵
         // 定义： 理想数值（优质数值） = 估计数值 + 误差
+        // note: 里程计的观测是世界坐标系中的速度，以及世界坐标系中的角度，所以状态转移也与这两个量有关
         Eigen::MatrixXd F = Eigen::MatrixXd::Zero(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM);
-        F.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) = last_state_ptr->Rwb_;
-
-        F.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) =
-            -Converter::Skew(last_state_ptr->Rwb_ * (last_data_.a_ + last_state_ptr->ba_));
-        F.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->ACC_BIAS_INDEX_STATE_) = last_state_ptr->Rwb_;
-
-        F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->VEL_INDEX_STATE_) = Eigen::Matrix3d::Identity();
-        F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->ACC_BIAS_INDEX_STATE_) = 0.5 * delta_t * last_state_ptr->Rwb_;
-        F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->ORI_INDEX_STATE_) = -0.5 * delta_t * Converter::Skew(last_state_ptr->Rwb_ * (last_data_.a_ + last_state_ptr->ba_));
-
-        Eigen::MatrixXd G = Eigen::MatrixXd::Zero(param_ptr_->STATE_DIM, 12);
-        G.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, 0) = last_state_ptr->Rwb_ * delta_t;
-        G.block<3, 3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, 3) = Eigen::Matrix3d::Identity() * delta_t;
-        G.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, 6) = last_state_ptr->Rwb_ * delta_t;
-        G.block<3, 3>(param_ptr_->ACC_BIAS_INDEX_STATE_, 9) = Eigen::Matrix3d::Identity() * delta_t;
-
+        // note: 速度转换到直接坐标系下，可以看做是对世界坐标系下的速度的直接观测，导数为单位矩阵
+        F.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->VEL_INDEX_STATE_) = Eigen::Matrix3d::Identity();
+        // note: 角度转换到直接坐标系下，可以看做是对世界坐标系下的角度的直接观测，导数为单位矩阵
+        F.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) = Eigen::Matrix3d::Identity();
         Eigen::MatrixXd Phi = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) + F * delta_t;
 
+        // note: 噪声直接累加
+        Eigen::MatrixXd G = Eigen::MatrixXd::Zero(param_ptr_->STATE_DIM, 12);
+        G.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, 0) = Eigen::Matrix3d::Identity() * delta_t;
+        G.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, 6) = Eigen::Matrix3d::Identity() * delta_t;
         cur_state_ptr->C_ = Phi * last_state_ptr->C_ * Phi.transpose() + G * param_ptr_->imu_dispersed_noise_cov_ * G.transpose();
 
         Eigen::MatrixXd state_cov_fixed = 

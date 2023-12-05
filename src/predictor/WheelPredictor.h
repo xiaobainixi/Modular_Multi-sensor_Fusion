@@ -1,5 +1,6 @@
 #pragma once
 #include "Predictor.h"
+#include <sophus/so3.hpp>
 
 
 #pragma once
