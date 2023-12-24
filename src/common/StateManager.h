@@ -49,14 +49,25 @@ public:
         param_ptr_ = param_ptr;
     }
 
-    inline bool GetNearestState(std::shared_ptr<State> & state) {
-        std::unique_lock<std::mutex> lock(states_mtx_);
-        if (states_.empty()) {
+    inline bool GetNearestState(std::shared_ptr<State> & state, double time = -1.0) {
+        if (states_.empty())
             return false;
-        } else {
+        if (time < 0.0) {
+            std::unique_lock<std::mutex> lock(states_mtx_);
             state = states_[states_.size() - 1];
             return true;
+        } else if (states_.size() > 1) {
+            std::shared_ptr<State> tar = std::make_shared<State>();
+            tar->time_ = time;
+            auto iter = lower_bound(states_.begin(), states_.end(), tar, CompareTime());
+            if (iter != states_.begin() && iter != states_.end()) {
+                auto iter_sub = iter;
+                iter_sub--;
+                state = std::abs((*iter)->time_ - time) < std::abs((*iter_sub)->time_ - time) ? (*iter) : (*iter_sub);
+                return true;
+            }
         }
+        return false;
     }
 
     inline bool PushState(const std::shared_ptr<State> & state) {

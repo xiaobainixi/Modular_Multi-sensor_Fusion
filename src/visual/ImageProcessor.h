@@ -40,14 +40,14 @@ private:
      */
     struct ProcessorConfig
     {
-        int grid_row = 2;
-        int grid_col = 5;
+        int grid_row = 4;
+        int grid_col = 10;
         int grid_min_feature_num = 10;
         int grid_max_feature_num = 20;
 
         int pyramid_levels = 4;
         int patch_size = 15;
-        int fast_threshold = 10;
+        int fast_threshold = 5;
         int max_iteration = 30;
         double track_precision = 0.01;
         double ransac_threshold = 3.0;
