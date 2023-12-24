@@ -225,7 +225,7 @@ bool DataLoader::ReadImage(const std::string & path) {
         InputData data;
         data.time_ = std::stod(tmp.substr(5, 5)) + std::stod(tmp.substr(10, 3)) * 0.001;
         data.data_type_ = 3;
-        data.img_path_ = param_ptr_->data_path_ + img_data_line;
+        data.img_path_ = param_ptr_->data_path_ + "/" + img_data_line;
         image_datas_.push(data);
 
     }

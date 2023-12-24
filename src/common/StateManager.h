@@ -31,7 +31,8 @@ public:
             ba_ += X.block<3, 1>(param_ptr->ACC_BIAS_INDEX_STATE_, 0);
             bg_ += X.block<3, 1>(param_ptr->GYRO_BIAS_INDEX_STATE_, 0);
         } else {
-            // todo
+            Rwb_ = Converter::ExpSO3(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
+            twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);
         }
         C_ = C_new;
     }
