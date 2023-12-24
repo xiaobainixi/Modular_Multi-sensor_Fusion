@@ -39,6 +39,16 @@ struct CameraData {
     cv::Mat image_;
 };
 
+struct FeaturePoint {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    Eigen::Vector2d point_;
+    int id_ = -1;
+};
+struct FeatureData {
+    double time_ = -1.0;
+    std::vector<FeaturePoint> features_;
+};
+
 class DataManager {
 public:
     void Input(const IMUData & imu_data) {
