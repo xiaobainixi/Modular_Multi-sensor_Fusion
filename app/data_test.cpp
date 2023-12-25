@@ -36,7 +36,11 @@ int main() {
         } else if (input_data.data_type_ == 3) {
             CameraData camera_data;
             camera_data.time_ = input_data.time_;
-            camera_data.image_ = cv::imread(input_data.img_path_, 2);
+            camera_data.image_ = cv::imread(input_data.img_path_, -1);
+            cv::cvtColor(camera_data.image_, camera_data.image_,
+                                 cv::COLOR_BayerRG2RGB);
+            cv::cvtColor(camera_data.image_, camera_data.image_,
+                            cv::COLOR_RGB2GRAY);
             // cv::imshow("aaaa", camera_data.image_);
             // cv::waitKey(1);
             if (!camera_data.image_.empty()) {
@@ -47,7 +51,7 @@ int main() {
                 LOG(ERROR) << "读取图片失败，图片路径为： " << input_data.img_path_;
             }
                 
-        // }
+        }
     }
     return 0;
 }
