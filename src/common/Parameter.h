@@ -101,6 +101,26 @@ public:
             gps_z_noise_ = node.real();
         LOG(INFO) << "gps_z_noise: " << gps_z_noise_;
 
+        node = f_settings["wheel_kl"];
+        if (!node.empty() && node.isReal())
+            wheel_kl_ = node.real();
+        LOG(INFO) << "wheel_kl: " << wheel_kl_;
+
+        node = f_settings["wheel_kr"];
+        if (!node.empty() && node.isReal())
+            wheel_kr_ = node.real();
+        LOG(INFO) << "wheel_kr: " << wheel_kr_;
+
+        node = f_settings["wheel_b"];
+        if (!node.empty() && node.isReal())
+            wheel_b_ = node.real();
+        LOG(INFO) << "wheel_b: " << wheel_b_;
+
+        node = f_settings["wheel_noise_factor"];
+        if (!node.empty() && node.isReal())
+            wheel_noise_factor_ = node.real();
+        LOG(INFO) << "wheel_noise_factor: " << wheel_noise_factor_;
+
         node = f_settings["encoder_resolution"];
         if (!node.empty() && node.isReal())
             encoder_resolution_ = node.real();
@@ -186,6 +206,12 @@ public:
     Eigen::Matrix<double, 12, 12> imu_dispersed_noise_cov_;
 
     // wheel
+    // note: new param for wheel
+    double wheel_kl_ = 0.00047820240382508;
+    double wheel_kr_ = 0.00047768621928995;
+    double wheel_b_ = 1.52439;
+    double wheel_noise_factor_ = 0.2;
+    // note: old param for wheel
     double encoder_resolution_ = 0.00047820240382508;
     double wheel_x_noise_ = 0.001;
     double wheel_y_noise_ = 0.001;

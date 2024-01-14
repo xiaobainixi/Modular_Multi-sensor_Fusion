@@ -188,8 +188,9 @@ bool DataLoader::ReadWheel(const std::string & path) {
         data.time_ = cur_encoder_data_time;
         data.data_type_ = 1;
         double delta_time = cur_encoder_data_time - last_encoder_data_time;
-        data.lv_ = (cur_left_encoder_data - last_left_encoder_data) * param_ptr_->encoder_resolution_ / delta_time;
-        data.rv_ = (cur_right_encoder_data - last_right_encoder_data) * param_ptr_->encoder_resolution_ / delta_time;
+        data.lv_ = (cur_left_encoder_data - last_left_encoder_data) * param_ptr_->wheel_kl_ / delta_time;
+        data.rv_ = (cur_right_encoder_data - last_right_encoder_data) * param_ptr_->wheel_kr_ / delta_time;
+
         wheel_datas_.push(data);
 
         last_encoder_data_time = cur_encoder_data_time;

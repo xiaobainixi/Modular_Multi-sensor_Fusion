@@ -49,7 +49,7 @@ add_library(${PROJECT_NAME} SHARED
     src/observer/GPSWheelObserver.cpp
 
     src/predictor/IMUPredictor.cpp
-    src/predictor/WheelIMUPredictor.cpp
+    # src/predictor/WheelIMUPredictor.cpp
     src/predictor/WheelPredictor.cpp
 
     src/visual/ImageProcessor.cpp

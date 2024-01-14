@@ -4,8 +4,8 @@
 fusion_model: 0
 
 # predict type
-use_imu: 1
-wheel_use_type: 2
+use_imu: 0
+wheel_use_type: 1
 
 # obs type
 use_gps: 1
@@ -21,6 +21,13 @@ gps_x_noise: 0.5
 gps_y_noise: 0.5
 gps_z_noise: 0.5
 
+# wheel
+# new
+wheel_kl: 0.00047820240382508
+wheel_kr: 0.00047768621928995
+wheel_b: 1.52439
+wheel_noise_factor: 0.2
+# old
 encoder_resolution: 0.00047820240382508
 wheel_x_noise: 0.1
 wheel_y_noise: 0.1
@@ -30,3 +37,4 @@ fix_yz_in_eskf: 0
 # data
 play_speed: 1.0
 data_path: /home/l/slam/data
+#data_path: /home/fengbro/book_ws/Modular_Multi-sensor_Fusion/data

@@ -22,6 +22,7 @@ public:
             // todo imu+wheel
         } else if (!param_ptr_->use_imu_ && param_ptr_->wheel_use_type_ == 1) {
             // todo wheel
+            predictor_ptr_ = std::make_shared<WheelPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
         }
 
         if (param_ptr_->fusion_model_ == 0) {
