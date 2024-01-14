@@ -17,9 +17,6 @@ public:
         data_manager_ptr_ = data_manager_ptr;
         state_manager_ptr_ = state_manager_ptr;
 
-        H_ = Eigen::MatrixXd::Zero(6, param_ptr->STATE_DIM);
-        H_.block<3, 3>(0, param_ptr->POSI_INDEX) = Eigen::Matrix3d::Identity();
-
         R_ = Eigen::MatrixXd::Zero(6, 6);
         R_(0, 0) = param_ptr->gps_x_noise_ * param_ptr->gps_x_noise_;
         R_(1, 1) = param_ptr->gps_y_noise_ * param_ptr->gps_y_noise_;

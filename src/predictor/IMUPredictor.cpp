@@ -3,10 +3,15 @@
 // todo 数个一起来还是一个一个，数个一起来比较好
 void IMUPredictor::Run() {
     while(1) {
+        RunOnce();
+        usleep(100);
+    }
+}
+
+void IMUPredictor::RunOnce() {
         IMUData cur_data;
         if (!data_manager_ptr_->GetLastIMUData(cur_data, last_data_.time_)) {
-            usleep(100);
-            continue;
+            return;
         }
         
         // 第一个数据
@@ -21,13 +26,11 @@ void IMUPredictor::Run() {
             cur_state_ptr->C_.block<3, 3>(param_ptr_->ACC_BIAS_INDEX_STATE_, param_ptr_->ACC_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
             state_manager_ptr_->PushState(cur_state_ptr);
             last_data_ = cur_data;
-            usleep(100);
-            continue;
+            return;
         }
         double delta_t = cur_data.time_ - last_data_.time_;
         if (delta_t <= 0.0) {
-            usleep(100);
-            continue;
+            return;
         }
 
         std::shared_ptr<State> last_state_ptr;
@@ -81,18 +84,32 @@ void IMUPredictor::Run() {
 
         Eigen::MatrixXd Phi = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) + F * delta_t;
 
-        cur_state_ptr->C_ = Phi * last_state_ptr->C_ * Phi.transpose() + G * param_ptr_->imu_dispersed_noise_cov_ * G.transpose();
+        cur_state_ptr->C_ = last_state_ptr->C_;
+        cur_state_ptr->C_.block(0, 0, param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) =
+            Phi * last_state_ptr->C_.block(0, 0, param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) * Phi.transpose() +
+            G * param_ptr_->imu_dispersed_noise_cov_ * G.transpose();
 
         Eigen::MatrixXd state_cov_fixed = 
             (cur_state_ptr->C_ + cur_state_ptr->C_.transpose()) / 2.0;
         cur_state_ptr->C_ = state_cov_fixed;
+
+        if (state_manager_ptr_->cam_states_.size() > 0)
+        {
+            // 起点是0 param_ptr_->STATE_DIM  然后是21行 cur_state_ptr->C_.cols() - param_ptr_->STATE_DIM 列的矩阵
+            // 也就是整个协方差矩阵的右上角，这部分说白了就是imu状态量与相机状态量的协方差，imu更新了，这部分也需要更新
+            cur_state_ptr->C_.block(0, param_ptr_->STATE_DIM, param_ptr_->STATE_DIM, cur_state_ptr->C_.cols() - param_ptr_->STATE_DIM) =
+                Phi * cur_state_ptr->C_.block(0, param_ptr_->STATE_DIM, param_ptr_->STATE_DIM, cur_state_ptr->C_.cols() - param_ptr_->STATE_DIM);
+
+            // 同理，这个是左下角
+            cur_state_ptr->C_.block(param_ptr_->STATE_DIM, 0, cur_state_ptr->C_.rows() - param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) =
+                cur_state_ptr->C_.block(param_ptr_->STATE_DIM, 0, cur_state_ptr->C_.rows() - param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) *
+                Phi.transpose();
+        }
 
         state_manager_ptr_->PushState(cur_state_ptr);
         last_data_ = cur_data;
 
         if (viewer_ptr_)
             viewer_ptr_->DrawWheelPose(cur_state_ptr->Rwb_, cur_state_ptr->twb_);
-        usleep(100);
-    }
-    
+        // LOG(INFO) << "predict";
 }

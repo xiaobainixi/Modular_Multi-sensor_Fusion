@@ -8,6 +8,7 @@ use_imu: 0
 wheel_use_type: 1
 
 # obs type
+gps_wheel_align: 1
 use_gps: 1
 use_camera: 1
 
@@ -33,6 +34,31 @@ wheel_x_noise: 0.1
 wheel_y_noise: 0.1
 wheel_z_noise: 0.1
 fix_yz_in_eskf: 0
+
+cam_distortion_model: radtan
+camera_fx: 8.1690378992770002e+02
+camera_fy: 8.1156803828490001e+02
+camera_cx: 6.0850726281690004e+02
+camera_cy: 2.6347599764440002e+02
+
+camera_k1: -5.6143027800000002e-02
+camera_k2: 1.3952563200000001e-01
+camera_p1: -1.2155906999999999e-03
+camera_p2: -9.7281389999999998e-04
+camera_k3: 0.0
+
+Rbc: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ -0.00680499, -0.0153215, 0.99985, 
+           -0.999977, 0.000334627, -0.00680066,
+           -0.000230383, -0.999883, -0.0153234]
+tbc: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [1.71239, 0.247401, -0.11589]
 
 # data
 play_speed: 1.0

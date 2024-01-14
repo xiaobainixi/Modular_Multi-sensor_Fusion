@@ -38,6 +38,37 @@ public:
     }
 };
 
+struct CamState
+{
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    CamState() : id(0), time(0)
+    {
+    }
+
+    CamState(const int &new_id) : id(new_id), time(0)
+    {
+    }
+    // Time when the state is recorded
+    double time = -1.0;
+    int id;
+
+    // Orientation
+    // Take a vector from the world frame to the camera frame.
+    Eigen::Matrix3d Rwc_ = Eigen::Matrix3d::Identity();
+
+    // Position of the camera frame in the world frame.
+    Eigen::Vector3d twc_ = Eigen::Vector3d::Zero();
+
+    // These two variables should have the same physical
+    // interpretation with `orientation` and `position`.
+    // There two variables are used to modify the measurement
+    // Jacobian matrices to make the observability matrix
+    // have proper null space.
+    // 使可观测性矩阵具有适当的零空间的旋转平移
+    Eigen::Matrix3d Rwc_null_ = Eigen::Matrix3d::Identity();
+    Eigen::Vector3d twc_null_ = Eigen::Vector3d::Zero();
+};
+
 struct CompareTime {
 	bool operator() (const std::shared_ptr<State>& s1,  const std::shared_ptr<State>& s2) {	
 		return s1->time_ < s2->time_;
@@ -95,6 +126,9 @@ public:
     }
 
     // todo getbetween 差值等
+
+    std::map<int, std::shared_ptr<CamState>, std::less<int>, 
+        Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<CamState>>>> cam_states_;
 private:
     // 不同线程访问，一定要加锁
     std::mutex states_mtx_;

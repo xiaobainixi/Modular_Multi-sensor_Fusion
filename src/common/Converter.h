@@ -1,6 +1,11 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <Eigen/Sparse>
+#include <Eigen/SVD>
+#include <Eigen/QR>
+#include <Eigen/SparseCore>
+#include <Eigen/SPQRSupport>
 class Converter
 {
 public:
@@ -59,5 +64,27 @@ public:
             return w;
         else
             return theta * w / s;
+    }
+
+    /**
+     *  @brief 反对称矩阵
+     *  @note Performs the operation:
+     *  w   ->  [  0 -w3  w2]
+     *          [ w3   0 -w1]
+     *          [-w2  w1   0]
+     */
+    static Eigen::Matrix3d SkewSymmetric(const Eigen::Vector3d &w)
+    {
+        Eigen::Matrix3d w_hat;
+        w_hat(0, 0) = 0;
+        w_hat(0, 1) = -w(2);
+        w_hat(0, 2) = w(1);
+        w_hat(1, 0) = w(2);
+        w_hat(1, 1) = 0;
+        w_hat(1, 2) = -w(0);
+        w_hat(2, 0) = -w(1);
+        w_hat(2, 1) = w(0);
+        w_hat(2, 2) = 0;
+        return w_hat;
     }
 };

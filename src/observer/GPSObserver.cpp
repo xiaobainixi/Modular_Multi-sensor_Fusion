@@ -17,6 +17,9 @@ bool GPSObserver::ComputeHZR(
     Eigen::Vector3d t_error = gps_enu - state_ptr->twb_;
     Z = Eigen::VectorXd::Zero(3);
     Z.block<3, 1>(0, 0) = t_error;
+
+    H_ = Eigen::MatrixXd::Zero(3, param_ptr_->STATE_DIM + state_manager_ptr_->cam_states_.size() * 6);
+    H_.block<3, 3>(0, param_ptr_->POSI_INDEX) = Eigen::Matrix3d::Identity();
     H = H_;
     R = R_;
     return true;

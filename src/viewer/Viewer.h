@@ -51,7 +51,7 @@ public:
 
     void DrawWheelPose(const Eigen::Matrix3d &G_R_O, const Eigen::Vector3d &G_p_O);
 
-    void DrawFeatures(const std::vector<Eigen::Vector3d> &features);
+    void DrawFeatures(const std::vector<Eigen::Vector3d> &features, bool clear_old = true);
 
     void DrawColorImage(const cv::Mat &image);
     void DrawImage(const cv::Mat &image,

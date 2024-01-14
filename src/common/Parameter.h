@@ -8,6 +8,7 @@
 #include <glog/logging.h>
 #include <Eigen/Core>
 #include <opencv2/opencv.hpp>
+#include <opencv2/core/eigen.hpp>
 
 #include "GlobalDefination.h"
 class Parameter
@@ -60,6 +61,17 @@ public:
         if (!node.empty() && node.isInt())
             use_gps_ = int(node.real()) == 1;
         LOG(INFO) << "use_gps: " << use_gps_;
+
+        node = f_settings["gps_wheel_align"];
+        if (!node.empty() && node.isInt())
+            gps_wheel_align_ = int(node.real()) == 1;
+        if (wheel_use_type_ != 2 || !use_gps_) {
+            gps_wheel_align_ = false;
+            LOG(INFO) << "不使用轮速或gps作为观测, gps与轮速不会对齐使用, 如果想对齐观测, 请同时打开gps与wheel观测";
+        }
+        LOG(INFO) << "gps_wheel_align: " << gps_wheel_align_;
+
+        
 
         node = f_settings["use_camera"];
         if (!node.empty() && node.isInt())
@@ -166,6 +178,44 @@ public:
             Eigen::Matrix3d::Identity() * acc_noise_ * acc_noise_;
         imu_dispersed_noise_cov_.block<3, 3>(9, 9) =
             Eigen::Matrix3d::Identity() * acc_bias_noise_ * acc_bias_noise_;
+
+
+        
+        node = f_settings["camera_fx"];
+        if (!node.empty() && node.isReal())
+            cam_intrinsics_[0] = node.real();
+        node = f_settings["camera_fy"];
+        if (!node.empty() && node.isReal())
+            cam_intrinsics_[1] = node.real();
+        node = f_settings["camera_cx"];
+        if (!node.empty() && node.isReal())
+            cam_intrinsics_[2] = node.real();
+        node = f_settings["camera_cy"];
+        if (!node.empty() && node.isReal())
+            cam_intrinsics_[3] = node.real();
+
+        node = f_settings["camera_k1"];
+        if (!node.empty() && node.isReal())
+            cam_distortion_coeffs_[0] = node.real();
+        node = f_settings["camera_k2"];
+        if (!node.empty() && node.isReal())
+            cam_distortion_coeffs_[1] = node.real();
+        node = f_settings["camera_p1"];
+        if (!node.empty() && node.isReal())
+            cam_distortion_coeffs_[2] = node.real();
+        node = f_settings["camera_p2"];
+        if (!node.empty() && node.isReal())
+            cam_distortion_coeffs_[3] = node.real();
+
+        cv::Mat Rbc_mat, tbc_mat;
+        f_settings["Rbc"] >> Rbc_mat;
+        f_settings["tbc"] >> tbc_mat;
+        cv2eigen(Rbc_mat, Rbc_);
+        cv2eigen(tbc_mat, tbc_);
+        // todo
+        // node = f_settings["camera_k3"];
+        // if (!node.empty() && node.isReal())
+        //     cam_distortion_coeffs_ = node.real();
     }
 
     void ConfigureStatusDim(int type)
@@ -181,6 +231,7 @@ public:
     bool use_imu_ = true;
     // 0 unused 1 predict 2 obs
     int wheel_use_type_ = 0;
+    bool gps_wheel_align_ = false;
     bool use_gps_ = false;
     bool use_camera_ = false;
 
@@ -198,6 +249,7 @@ public:
     double gyro_bias_noise_ = 2.6e-04;
     double acc_noise_ = 2.6e-02;
     double acc_bias_noise_ = 2.6e-03;
+    Eigen::Vector3d gw_ = Eigen::Vector3d(0.0, 0.0, -9.81);
 
     // gps
     double gps_x_noise_ = 0.001;
@@ -219,12 +271,12 @@ public:
     bool fix_yz_in_eskf_ = false;
 
     // Camera
-    std::string cam_distortion_model;
-    cv::Vec4d cam_intrinsics;
-    cv::Vec4d cam_distortion_coeffs;
+    std::string cam_distortion_model_;
+    cv::Vec4d cam_intrinsics_;
+    cv::Vec4d cam_distortion_coeffs_;
 
-    cv::Matx33d R_cam_imu;
-    cv::Vec3d t_cam_imu;
+    Eigen::Matrix3d Rbc_;
+    Eigen::Vector3d tbc_;
 
     // dataloader
     double play_speed_ = 6.0;

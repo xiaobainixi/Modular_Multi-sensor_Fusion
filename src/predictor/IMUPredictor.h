@@ -15,11 +15,12 @@ public:
         param_ptr_ = param_ptr;
         data_manager_ptr_ = data_manager_ptr;
 
-        run_thread_ptr_ = std::make_shared<std::thread>(&IMUPredictor::Run, this);
+        // run_thread_ptr_ = std::make_shared<std::thread>(&IMUPredictor::Run, this);
     }
 
 private:
     void Run();
+    void RunOnce();
     std::shared_ptr<StateManager> state_manager_ptr_;
     IMUData last_data_;
 };

@@ -8,12 +8,12 @@
 #include <Eigen/Geometry>
 #include <Eigen/StdVector>
 
-#include "math_utils.hpp"
-#include "imu_state.h"
-#include "cam_state.h"
+// id and state
+typedef std::map<int, std::shared_ptr<CamState>, std::less<int>, 
+        Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<CamState>>>>
+    CamStateServer;
 
-
-/** 
+/**
  * @brief Feature Salient part of an image. Please refer
  *    to the Appendix of "A Multi-State Constraint Kalman
  *    Filter for Vision-aided Inertial Navigation" for how
@@ -47,25 +47,25 @@ struct Feature
 
         OptimizationConfig()
             : translation_threshold(0.2),
-            huber_epsilon(0.01),
-            estimation_precision(5e-7),
-            initial_damping(1e-3),
-            outer_loop_max_iteration(10),
-            inner_loop_max_iteration(10)
+              huber_epsilon(0.01),
+              estimation_precision(5e-7),
+              initial_damping(1e-3),
+              outer_loop_max_iteration(10),
+              inner_loop_max_iteration(10)
         {
             return;
         }
     };
 
     // Constructors for the struct.
-    Feature() 
-        : id(0), position(Eigen::Vector3d::Zero()),
-        is_initialized(false) {}
+    Feature()
+        : id_(0), position(Eigen::Vector3d::Zero()),
+          is_initialized(false) {}
 
     Feature(const FeatureIDType &new_id)
-        : id(new_id),
-        position(Eigen::Vector3d::Zero()),
-        is_initialized(false) {}
+        : id_(new_id),
+          position(Eigen::Vector3d::Zero()),
+          is_initialized(false) {}
 
     /**
      * @brief cost Compute the cost of the camera observations
@@ -138,7 +138,7 @@ struct Feature
     // In case of long time running, the variable
     // type of id is set to FeatureIDType in order
     // to avoid duplication.
-    FeatureIDType id;
+    FeatureIDType id_;
 
     // id for next feature
     static FeatureIDType next_id;
@@ -146,8 +146,8 @@ struct Feature
     // Store the observations of the features in the
     // state_id(key)-image_coordinates(value) manner.
     // 升序排序的map
-    std::map<StateIDType, Eigen::Vector4d, std::less<StateIDType>,
-            Eigen::aligned_allocator<std::pair<const StateIDType, Eigen::Vector4d>>>
+    std::map<int, Eigen::Vector2d, std::less<int>,
+             Eigen::aligned_allocator<std::pair<const int, Eigen::Vector4d>>>
         observations;
 
     // 3d postion of the feature in the world frame.
@@ -166,7 +166,7 @@ struct Feature
 
 typedef Feature::FeatureIDType FeatureIDType;
 typedef std::map<FeatureIDType, Feature, std::less<int>,
-        Eigen::aligned_allocator<std::pair<const FeatureIDType, Feature>>>
+                 Eigen::aligned_allocator<std::pair<const FeatureIDType, Feature>>>
     MapServer;
 
 /**
@@ -178,26 +178,26 @@ bool Feature::checkMotion(
     const CamStateServer &cam_states) const
 {
     // 1. 取出对应的始末帧id
-    const StateIDType &first_cam_id = observations.begin()->first;
-    const StateIDType &last_cam_id = (--observations.end())->first;
+    const int &first_cam_id = observations.begin()->first;
+    const int &last_cam_id = (--observations.end())->first;
 
     // 2. 分别赋值位姿
     Eigen::Isometry3d first_cam_pose;
     // Rwc
     first_cam_pose.linear() =
-        quaternionToRotation(cam_states.find(first_cam_id)->second.orientation).transpose();
-    
+        cam_states.find(first_cam_id)->second->Rwc_;
+
     // twc
     first_cam_pose.translation() =
-        cam_states.find(first_cam_id)->second.position;
+        cam_states.find(first_cam_id)->second->twc_;
 
     Eigen::Isometry3d last_cam_pose;
     // Rwc
     last_cam_pose.linear() =
-        quaternionToRotation(cam_states.find(last_cam_id)->second.orientation).transpose();
+        cam_states.find(last_cam_id)->second->Rwc_;
     // twc
     last_cam_pose.translation() =
-        cam_states.find(last_cam_id)->second.position;
+        cam_states.find(last_cam_id)->second->twc_;
 
     // Get the direction of the feature when it is first observed.
     // This direction is represented in the world frame.
@@ -209,7 +209,6 @@ bool Feature::checkMotion(
     // 转到世界坐标系下，求出了这个射线的方向
     feature_direction = feature_direction / feature_direction.norm();
     feature_direction = first_cam_pose.linear() * feature_direction;
-
     // Compute the translation between the first frame
     // and the last frame. We assume the first frame and
     // the last frame will provide the largest motion to
@@ -266,31 +265,31 @@ bool Feature::initializePosition(
         // Add the measurement.
         // 1.1 添加归一化坐标
         measurements.push_back(m.second.head<2>());
-        measurements.push_back(m.second.tail<2>());
+        // measurements.push_back(m.second.tail<2>());
 
         // This camera pose will take a vector from this camera frame
         // to the world frame.
         // Twc
         Eigen::Isometry3d cam0_pose;
         cam0_pose.linear() =
-            quaternionToRotation(cam_state_iter->second.orientation).transpose();
-        cam0_pose.translation() = cam_state_iter->second.position;
+            cam_state_iter->second->Rwc_;
+        cam0_pose.translation() = cam_state_iter->second->twc_;
 
-        Eigen::Isometry3d cam1_pose;
-        cam1_pose = cam0_pose * CAMState::T_cam0_cam1.inverse();
+        // Eigen::Isometry3d cam1_pose;
+        // cam1_pose = cam0_pose * CAMState::T_cam0_cam1.inverse();
 
         // 1.2 添加相机位姿
         cam_poses.push_back(cam0_pose);
-        cam_poses.push_back(cam1_pose);
+        // cam_poses.push_back(cam1_pose);
     }
 
     // All camera poses should be modified such that it takes a
     // vector from the first camera frame in the buffer to this
     // camera frame.
     // 2. 中心化位姿，提高计算精度
-    Eigen::Isometry3d T_c0_w = cam_poses[0];
+    Eigen::Isometry3d T_w_c0 = cam_poses[0];
     for (auto &pose : cam_poses)
-        pose = pose.inverse() * T_c0_w;
+        pose = pose.inverse() * T_w_c0;
 
     // Generate initial guess
     // 3. 使用首末位姿粗略计算出一个三维点坐标
@@ -398,27 +397,26 @@ bool Feature::initializePosition(
             // 并且算法接近一阶的最速下降法
             else
             {
-                
                 is_cost_reduced = false;
                 lambda = lambda * 10 < 1e12 ? lambda * 10 : 1e12;
             }
 
         } while (inner_loop_cntr++ <
-                        optimization_config.inner_loop_max_iteration &&
-                    !is_cost_reduced);
+                     optimization_config.inner_loop_max_iteration &&
+                 !is_cost_reduced);
 
         inner_loop_cntr = 0;
 
-    // 直到迭代次数到了或者更新量足够小了
+        // 直到迭代次数到了或者更新量足够小了
     } while (outer_loop_cntr++ <
-                    optimization_config.outer_loop_max_iteration &&
-                delta_norm > optimization_config.estimation_precision);
+                 optimization_config.outer_loop_max_iteration &&
+             delta_norm > optimization_config.estimation_precision);
 
     // Covert the feature position from inverse depth
     // representation to its 3d coordinate.
     // 取出最后的结果
     Eigen::Vector3d final_position(solution(0) / solution(2),
-                                    solution(1) / solution(2), 1.0 / solution(2));
+                                   solution(1) / solution(2), 1.0 / solution(2));
 
     // Check if the solution is valid. Make sure the feature
     // is in front of every camera frame observing it.
@@ -437,7 +435,7 @@ bool Feature::initializePosition(
 
     // 7. 更新结果
     // Convert the feature position to the world frame.
-    position = T_c0_w.linear() * final_position + T_c0_w.translation();
+    position = T_w_c0.linear() * final_position + T_w_c0.translation();
 
     if (is_valid_solution)
         is_initialized = true;
@@ -501,9 +499,9 @@ void Feature::jacobian(
 {
 
     // Compute hi1, hi2, and hi3 as Equation (37).
-    const double &alpha = x(0);  // x/z
+    const double &alpha = x(0); // x/z
     const double &beta = x(1);  // y/z
-    const double &rho = x(2);  // 1/z
+    const double &rho = x(2);   // 1/z
 
     // h 等于 (R * P + t) * 1/Pz
     // h1    | R11 R12 R13    alpha / rho       t1    |
@@ -584,10 +582,10 @@ void Feature::generateInitialGuess(
     Eigen::Vector3d m = T_c1_c2.linear() * Eigen::Vector3d(z1(0), z1(1), 1.0);
 
     Eigen::Vector2d A(0.0, 0.0);
-    A(0) = m(0) - z2(0) * m(2);  // 对应第二行
+    A(0) = m(0) - z2(0) * m(2); // 对应第二行
 
     // 按照上面推导这里应该是负的但是不影响，因为我们下边b(1)也给取负了
-    A(1) = m(1) - z2(1) * m(2);  // 对应第一行
+    A(1) = m(1) - z2(1) * m(2); // 对应第一行
 
     Eigen::Vector2d b(0.0, 0.0);
     b(0) = z2(0) * T_c1_c2.translation()(2) - T_c1_c2.translation()(0);

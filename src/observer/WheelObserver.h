@@ -7,14 +7,12 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
     WheelObserver(const std::shared_ptr<Parameter> &param_ptr, const std::shared_ptr<DataManager> &data_manager_ptr,
-                const std::shared_ptr<StateManager> &state_manager_ptr)
+                const std::shared_ptr<StateManager> &state_manager_ptr, std::shared_ptr<Viewer> viewer_ptr = nullptr)
                 
     {
         param_ptr_ = param_ptr;
         data_manager_ptr_ = data_manager_ptr;
         state_manager_ptr_ = state_manager_ptr;
-
-        H_ = Eigen::MatrixXd::Zero(3, param_ptr->STATE_DIM);
 
         R_ = Eigen::MatrixXd::Zero(3, 3);
         R_(0, 0) = param_ptr->wheel_x_noise_ * param_ptr->wheel_x_noise_;

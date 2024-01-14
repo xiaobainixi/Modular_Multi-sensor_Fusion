@@ -16,6 +16,7 @@ set(CMAKE_CXX_STANDARD 17)
 include(cmake/FindGLEW.cmake)
 include(cmake/FindGlog.cmake)
 include(cmake/global_defination.cmake)
+include(cmake/FindSuiteSparse.cmake)
 
 # find
 include_directories(${GLOG_INCLUDE_DIRS})
@@ -39,6 +40,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}
     ${EIGEN3_INCLUDE_DIR}
     ${OpenCV_INCLUDE_DIR}
+    ${SUITESPARSE_INCLUDE_DIRS}
 )
 
 add_library(${PROJECT_NAME} SHARED
@@ -68,7 +70,7 @@ target_link_libraries(${PROJECT_NAME}
     ${EIGEN3_LIBS}
     ${Pangolin_LIBRARIES}
     ${GLOG_LIBRARIES}
-    
+    ${SUITESPARSE_LIBRARIES}
 )
 
 add_executable(data_test app/data_test.cpp)

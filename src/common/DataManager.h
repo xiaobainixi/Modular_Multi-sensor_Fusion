@@ -45,8 +45,14 @@ struct FeaturePoint {
     int id_ = -1;
 };
 struct FeatureData {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     double time_ = -1.0;
     std::vector<FeaturePoint> features_;
+    Eigen::Vector3d twc_ = Eigen::Vector3d::Zero();
+    Eigen::Matrix3d Rwc_ = Eigen::Matrix3d::Identity();
+    Eigen::Vector3d twb_ = Eigen::Vector3d::Zero();
+    Eigen::Matrix3d Rwb_ = Eigen::Matrix3d::Identity();
+    Eigen::MatrixXd C_;
 };
 
 class DataManager {
@@ -85,8 +91,16 @@ public:
         if (camera_data_.time_ > 0.0 && camera_data_.time_ >= camera_data.time_)
             return;
 
-        std::unique_lock<std::mutex> lock(camera_datas_mtx_);
+        std::unique_lock<std::mutex> lock(camera_data_mtx_);
         camera_data_ = camera_data;
+    }
+
+    void Input(const FeatureData & feature_data) {
+        if (feature_data_.time_ > 0.0 && feature_data_.time_ >= feature_data.time_)
+            return;
+
+        std::unique_lock<std::mutex> lock(feature_data_mtx_);
+        feature_data_ = feature_data;
     }
 
     bool GetLastIMUData(IMUData & imu_data, double last_data_time = -1.0) {
@@ -116,14 +130,24 @@ public:
     bool GetNewCameraData(CameraData & camera_data, double last_data_time = -1.0) {
         if (camera_data_.time_ <= last_data_time)
             return false;
-        std::unique_lock<std::mutex> lock(camera_datas_mtx_);
+        std::unique_lock<std::mutex> lock(camera_data_mtx_);
         camera_data = camera_data_;
         return true;
     }
+
+    bool GetNewFeatureData(FeatureData & feature_data, double last_data_time = -1.0) {
+        if (feature_data_.time_ <= last_data_time)
+            return false;
+        std::unique_lock<std::mutex> lock(feature_data_mtx_);
+        feature_data = feature_data_;
+        return true;
+    }
+
 private:
-    std::mutex imu_datas_mtx_, wheel_datas_mtx_, gps_datas_mtx_, camera_datas_mtx_;
+    std::mutex imu_datas_mtx_, wheel_datas_mtx_, gps_datas_mtx_, camera_data_mtx_, feature_data_mtx_;
     std::vector<IMUData> imu_datas_;
     std::vector<WheelData> wheel_datas_;
     std::vector<GPSData> gps_datas_;
     CameraData camera_data_;
+    FeatureData feature_data_;
 };
