@@ -1,11 +1,7 @@
 #pragma once
 #include "Filter.h"
 
-// Static member variables in Feature class.
 FeatureIDType Feature::next_id = 0;
-double Feature::observation_noise = 0.0001;
-Feature::OptimizationConfig Feature::optimization_config;
-
 void Filter::ESKFUpdate(
     const Eigen::MatrixXd & H, const Eigen::MatrixXd & C, const Eigen::MatrixXd & R,
     Eigen::MatrixXd & Z, Eigen::MatrixXd & C_new, Eigen::VectorXd & X)
@@ -34,7 +30,7 @@ void Filter::UpdateFromGPS(const std::shared_ptr<State> & state_ptr) {
     // 2. 计算更新量
     ESKFUpdate(H, state_ptr->C_, R, Z, C_new, X);
     // 3. 更新
-    state_ptr->Update(param_ptr_, X, C_new);
+    state_ptr->Update(param_ptr_, X, C_new, state_manager_ptr_->cam_states_);
     last_gps_data_.time_ = cur_gps_data.time_;
 }
 
@@ -57,7 +53,7 @@ void Filter::UpdateFromWheel(const std::shared_ptr<State> & state_ptr) {
     // 2. 计算更新量
     ESKFUpdate(H, state_ptr->C_, R, Z, C_new, X);
     // 3. 更新
-    state_ptr->Update(param_ptr_, X, C_new);
+    state_ptr->Update(param_ptr_, X, C_new, state_manager_ptr_->cam_states_);
     last_wheel_data_.time_ = cur_wheel_data.time_;
 }
 
@@ -83,7 +79,7 @@ void Filter::UpdateFromGPSWheel(const std::shared_ptr<State> & state_ptr) {
     // 2. 计算更新量
     ESKFUpdate(H, state_ptr->C_, R, Z, C_new, X);
     // 3. 更新
-    state_ptr->Update(param_ptr_, X, C_new);
+    state_ptr->Update(param_ptr_, X, C_new, state_manager_ptr_->cam_states_);
     last_gps_data_.time_ = cur_gps_data.time_;
     last_wheel_data_.time_ = cur_wheel_data.time_;
 }

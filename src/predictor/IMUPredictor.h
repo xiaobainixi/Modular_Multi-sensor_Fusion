@@ -17,10 +17,10 @@ public:
 
         // run_thread_ptr_ = std::make_shared<std::thread>(&IMUPredictor::Run, this);
     }
-
+    void RunOnce();
 private:
     void Run();
-    void RunOnce();
+    
     std::shared_ptr<StateManager> state_manager_ptr_;
     IMUData last_data_;
 };

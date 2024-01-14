@@ -89,10 +89,6 @@ void IMUPredictor::RunOnce() {
             Phi * last_state_ptr->C_.block(0, 0, param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) * Phi.transpose() +
             G * param_ptr_->imu_dispersed_noise_cov_ * G.transpose();
 
-        Eigen::MatrixXd state_cov_fixed = 
-            (cur_state_ptr->C_ + cur_state_ptr->C_.transpose()) / 2.0;
-        cur_state_ptr->C_ = state_cov_fixed;
-
         if (state_manager_ptr_->cam_states_.size() > 0)
         {
             // 起点是0 param_ptr_->STATE_DIM  然后是21行 cur_state_ptr->C_.cols() - param_ptr_->STATE_DIM 列的矩阵
@@ -105,6 +101,10 @@ void IMUPredictor::RunOnce() {
                 cur_state_ptr->C_.block(param_ptr_->STATE_DIM, 0, cur_state_ptr->C_.rows() - param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) *
                 Phi.transpose();
         }
+
+        Eigen::MatrixXd state_cov_fixed = 
+            (cur_state_ptr->C_ + cur_state_ptr->C_.transpose()) / 2.0;
+        cur_state_ptr->C_ = state_cov_fixed;
 
         state_manager_ptr_->PushState(cur_state_ptr);
         last_data_ = cur_data;

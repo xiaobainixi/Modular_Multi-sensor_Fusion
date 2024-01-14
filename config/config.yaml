@@ -9,7 +9,7 @@ wheel_use_type: 1
 
 # obs type
 gps_wheel_align: 1
-use_gps: 1
+use_gps: 0
 use_camera: 1
 
 # sensor conv
@@ -27,7 +27,7 @@ gps_z_noise: 0.5
 wheel_kl: 0.00047820240382508
 wheel_kr: 0.00047768621928995
 wheel_b: 1.52439
-wheel_noise_factor: 0.2
+wheel_noise_factor: 0.1
 # old
 encoder_resolution: 0.00047820240382508
 wheel_x_noise: 0.1
@@ -35,6 +35,7 @@ wheel_y_noise: 0.1
 wheel_z_noise: 0.1
 fix_yz_in_eskf: 0
 
+visual_observation_noise: 100000000.0
 cam_distortion_model: radtan
 camera_fx: 8.1690378992770002e+02
 camera_fy: 8.1156803828490001e+02
@@ -58,9 +59,10 @@ tbc: !!opencv-matrix
    rows: 3
    cols: 1
    dt: d
+   # data: [1.71239, 0.247401, 1.58411]
    data: [1.71239, 0.247401, -0.11589]
 
 # data
-play_speed: 1.0
+play_speed: 4.0
 data_path: /home/l/slam/data
 #data_path: /home/fengbro/book_ws/Modular_Multi-sensor_Fusion/data

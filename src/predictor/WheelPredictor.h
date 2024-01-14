@@ -14,9 +14,9 @@ public:
         param_ptr_ = param_ptr;
         data_manager_ptr_ = data_manager_ptr;
 
-        run_thread_ptr_ = std::make_shared<std::thread>(&WheelPredictor::Run, this);
+        // run_thread_ptr_ = std::make_shared<std::thread>(&WheelPredictor::Run, this);
     }
-
+    void RunOnce();
 private:
     void Run();
     std::shared_ptr<StateManager> state_manager_ptr_;

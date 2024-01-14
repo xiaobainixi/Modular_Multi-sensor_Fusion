@@ -8,6 +8,7 @@
 #include <Eigen/Geometry>
 #include <Eigen/StdVector>
 
+#include "common/Parameter.h"
 // id and state
 typedef std::map<int, std::shared_ptr<CamState>, std::less<int>, 
         Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<CamState>>>>
@@ -25,46 +26,16 @@ struct Feature
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     typedef long long int FeatureIDType;
 
-    /**
-     * @brief OptimizationConfig Configuration parameters
-     *    for 3d feature position optimization.
-     * 优化参数
-     */
-    struct OptimizationConfig
-    {
-        // 位移是否足够，用于判断点是否能做三角化
-        double translation_threshold;
-        // huber参数
-        double huber_epsilon;
-        // 修改量阈值，优化的每次迭代都会有更新量，这个量如果太小则表示与目标值接近
-        double estimation_precision;
-        // LM算法lambda的初始值
-        double initial_damping;
-
-        // 内外轮最大迭代次数
-        int outer_loop_max_iteration;
-        int inner_loop_max_iteration;
-
-        OptimizationConfig()
-            : translation_threshold(0.2),
-              huber_epsilon(0.01),
-              estimation_precision(5e-7),
-              initial_damping(1e-3),
-              outer_loop_max_iteration(10),
-              inner_loop_max_iteration(10)
-        {
-            return;
-        }
-    };
 
     // Constructors for the struct.
     Feature()
         : id_(0), position(Eigen::Vector3d::Zero()),
           is_initialized(false) {}
 
-    Feature(const FeatureIDType &new_id)
+    Feature(const FeatureIDType &new_id, std::shared_ptr<Parameter> param_ptr)
         : id_(new_id),
           position(Eigen::Vector3d::Zero()),
+          param_ptr_(param_ptr),
           is_initialized(false) {}
 
     /**
@@ -157,11 +128,7 @@ struct Feature
     // has been initialized or not.
     bool is_initialized;
 
-    // Noise for a normalized feature measurement.
-    static double observation_noise;
-
-    // Optimization configuration for solving the 3d position.
-    static OptimizationConfig optimization_config;
+    std::shared_ptr<Parameter> param_ptr_;
 };
 
 typedef Feature::FeatureIDType FeatureIDType;
@@ -233,7 +200,7 @@ bool Feature::checkMotion(
         translation - parallel_translation * feature_direction;
 
     if (orthogonal_translation.norm() >
-        optimization_config.translation_threshold)
+        param_ptr_->msckf_optimization_config_.translation_threshold)
         return true;
     else
         return false;
@@ -304,7 +271,7 @@ bool Feature::initializePosition(
         1.0 / initial_position(2));
 
     // Apply Levenberg-Marquart method to solve for the 3d position.
-    double lambda = optimization_config.initial_damping;
+    double lambda = param_ptr_->msckf_optimization_config_.initial_damping;
     int inner_loop_cntr = 0;
     int outer_loop_cntr = 0;
     bool is_cost_reduced = false;
@@ -402,15 +369,15 @@ bool Feature::initializePosition(
             }
 
         } while (inner_loop_cntr++ <
-                     optimization_config.inner_loop_max_iteration &&
+                     param_ptr_->msckf_optimization_config_.inner_loop_max_iteration &&
                  !is_cost_reduced);
 
         inner_loop_cntr = 0;
 
         // 直到迭代次数到了或者更新量足够小了
     } while (outer_loop_cntr++ <
-                 optimization_config.outer_loop_max_iteration &&
-             delta_norm > optimization_config.estimation_precision);
+                 param_ptr_->msckf_optimization_config_.outer_loop_max_iteration &&
+             delta_norm > param_ptr_->msckf_optimization_config_.estimation_precision);
 
     // Covert the feature position from inverse depth
     // representation to its 3d coordinate.
@@ -547,12 +514,12 @@ void Feature::jacobian(
     // Compute the weight based on the residual.
     // 使用鲁棒核函数约束
     double e = r.norm();
-    if (e <= optimization_config.huber_epsilon)
+    if (e <= param_ptr_->msckf_optimization_config_.huber_epsilon)
         w = 1.0;
     // 如果误差大于optimization_config.huber_epsilon但是没超过他的2倍，那么会放大权重w>1
     // 如果误差大的离谱，超过他的2倍，缩小他的权重
     else
-        w = std::sqrt(2.0 * optimization_config.huber_epsilon / e);
+        w = std::sqrt(2.0 * param_ptr_->msckf_optimization_config_.huber_epsilon / e);
 
     return;
 }

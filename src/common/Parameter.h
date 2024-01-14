@@ -11,6 +11,38 @@
 #include <opencv2/core/eigen.hpp>
 
 #include "GlobalDefination.h"
+
+/**
+ * @brief OptimizationConfig Configuration parameters
+ *    for 3d feature position optimization.
+ * 优化参数
+ */
+struct MSCKFOptimizationConfig
+{
+    // 位移是否足够，用于判断点是否能做三角化
+    double translation_threshold;
+    // huber参数
+    double huber_epsilon;
+    // 修改量阈值，优化的每次迭代都会有更新量，这个量如果太小则表示与目标值接近
+    double estimation_precision;
+    // LM算法lambda的初始值
+    double initial_damping;
+
+    // 内外轮最大迭代次数
+    int outer_loop_max_iteration;
+    int inner_loop_max_iteration;
+
+    MSCKFOptimizationConfig()
+        : translation_threshold(0.2),
+            huber_epsilon(0.01),
+            estimation_precision(5e-7),
+            initial_damping(1e-3),
+            outer_loop_max_iteration(10),
+            inner_loop_max_iteration(10)
+    {
+        return;
+    }
+};
 class Parameter
 {
 public:
@@ -180,7 +212,10 @@ public:
             Eigen::Matrix3d::Identity() * acc_bias_noise_ * acc_bias_noise_;
 
 
-        
+        node = f_settings["visual_observation_noise"];
+        if (!node.empty() && node.isReal())
+            visual_observation_noise_ = node.real();
+        LOG(INFO) << "visual_observation_noise: " << visual_observation_noise_;
         node = f_settings["camera_fx"];
         if (!node.empty() && node.isReal())
             cam_intrinsics_[0] = node.real();
@@ -271,6 +306,8 @@ public:
     bool fix_yz_in_eskf_ = false;
 
     // Camera
+    MSCKFOptimizationConfig msckf_optimization_config_;
+    double visual_observation_noise_ = 0.01;
     std::string cam_distortion_model_;
     cv::Vec4d cam_intrinsics_;
     cv::Vec4d cam_distortion_coeffs_;

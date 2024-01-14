@@ -87,7 +87,7 @@ private:
         // Compute the Kalman gain.
         const Eigen::MatrixXd &P = state_ptr->C_;
         Eigen::MatrixXd S = H_thin * P * H_thin.transpose() +
-                        Feature::observation_noise * Eigen::MatrixXd::Identity(
+                        param_ptr_->visual_observation_noise_ * Eigen::MatrixXd::Identity(
                                                         H_thin.rows(), H_thin.rows());
         // Eigen::MatrixXd K_transpose = S.fullPivHouseholderQr().solve(H_thin*P);
         Eigen::MatrixXd K_transpose = S.ldlt().solve(H_thin * P);
@@ -97,30 +97,18 @@ private:
         Eigen::VectorXd delta_x = K * r_thin;
 
         // Update the IMU state.
-        const Eigen::VectorXd &delta_x_imu = delta_x.segment(0, param_ptr_->STATE_DIM);
+        // const Eigen::VectorXd &delta_x_imu = delta_x.segment(0, param_ptr_->STATE_DIM);
 
-        if ( // delta_x_imu.segment<3>(0).norm() > 0.15 ||
-                // delta_x_imu.segment<3>(3).norm() > 0.15 ||
-            delta_x_imu.segment<3>(6).norm() > 0.5 ||
-            // delta_x_imu.segment<3>(9).norm() > 0.5 ||
-            delta_x_imu.segment<3>(12).norm() > 1.0)
-        {
-            printf("delta velocity: %f\n", delta_x_imu.segment<3>(6).norm());
-            printf("delta position: %f\n", delta_x_imu.segment<3>(12).norm());
-            // return;
-        }
-
-        // 3
-        // Update the camera states.
-        // 更新相机姿态
-        auto cam_state_iter = state_manager_ptr_->cam_states_.begin();
-        for (int i = 0; i < state_manager_ptr_->cam_states_.size(); ++i, ++cam_state_iter)
-        {
-            const Eigen::VectorXd &delta_x_cam = delta_x.segment<6>(param_ptr_->STATE_DIM + i * 6);
-            const Eigen::Matrix3d dq_cam = Converter::ExpSO3(delta_x_cam.head<3>());
-            cam_state_iter->second->Rwc_ =  dq_cam * cam_state_iter->second->Rwc_;
-            cam_state_iter->second->twc_ += delta_x_cam.tail<3>();
-        }
+        // if ( // delta_x_imu.segment<3>(0).norm() > 0.15 ||
+        //         // delta_x_imu.segment<3>(3).norm() > 0.15 ||
+        //     delta_x_imu.segment<3>(6).norm() > 0.5 ||
+        //     // delta_x_imu.segment<3>(9).norm() > 0.5 ||
+        //     delta_x_imu.segment<3>(12).norm() > 1.0)
+        // {
+        //     printf("delta velocity: %f\n", delta_x_imu.segment<3>(6).norm());
+        //     printf("delta position: %f\n", delta_x_imu.segment<3>(12).norm());
+        //     // return;
+        // }
 
         // Update state covariance.
         // 4. 更新协方差
@@ -131,7 +119,7 @@ private:
 
         // Fix the covariance to be symmetric
         C_tmp = (C_tmp + C_tmp.transpose()) / 2.0;
-        state_ptr->Update(param_ptr_, delta_x_imu, C_tmp);
+        state_ptr->Update(param_ptr_, delta_x, C_tmp, state_manager_ptr_->cam_states_);
     }
 
     /**
@@ -303,7 +291,7 @@ private:
         // 而且按照维度这个卡方的维度也不对
         // 
         Eigen::MatrixXd P1 = H * C * H.transpose();
-        Eigen::MatrixXd P2 = Feature::observation_noise *
+        Eigen::MatrixXd P2 = param_ptr_->visual_observation_noise_ *
                         Eigen::MatrixXd::Identity(H.rows(), H.rows());
         double gamma = r.transpose() * (P1 + P2).ldlt().solve(r);
 

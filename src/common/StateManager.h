@@ -10,34 +10,6 @@
 #include "DataManager.h"
 #include "Converter.h"
 
-class State {
-public:
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    // todo 是否有必要加锁
-    // std::mutex state_mtx_;
-    double time_;
-    Eigen::MatrixXd C_;  // 协方差矩阵
-    Eigen::Vector3d Vw_ = Eigen::Vector3d::Zero();
-    Eigen::Vector3d twb_ = Eigen::Vector3d::Zero();
-    Eigen::Matrix3d Rwb_ = Eigen::Matrix3d::Identity();
-    Eigen::Vector3d ba_ = Eigen::Vector3d::Zero();
-    Eigen::Vector3d bg_ = Eigen::Vector3d::Zero();
-
-    void Update(std::shared_ptr<Parameter> param_ptr, const Eigen::VectorXd & X, const Eigen::MatrixXd & C_new) {
-        if (param_ptr->state_type_ == 0) {
-            Rwb_ = Converter::ExpSO3(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
-            Vw_ += X.block<3, 1>(param_ptr->VEL_INDEX_STATE_, 0);
-            twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);
-            ba_ += X.block<3, 1>(param_ptr->ACC_BIAS_INDEX_STATE_, 0);
-            bg_ += X.block<3, 1>(param_ptr->GYRO_BIAS_INDEX_STATE_, 0);
-        } else {
-            Rwb_ = Converter::ExpSO3(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
-            twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);
-        }
-        C_ = C_new;
-    }
-};
-
 struct CamState
 {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -67,6 +39,47 @@ struct CamState
     // 使可观测性矩阵具有适当的零空间的旋转平移
     Eigen::Matrix3d Rwc_null_ = Eigen::Matrix3d::Identity();
     Eigen::Vector3d twc_null_ = Eigen::Vector3d::Zero();
+};
+
+class State {
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    // todo 是否有必要加锁
+    // std::mutex state_mtx_;
+    double time_;
+    Eigen::MatrixXd C_;  // 协方差矩阵
+    Eigen::Vector3d Vw_ = Eigen::Vector3d::Zero();
+    Eigen::Vector3d twb_ = Eigen::Vector3d::Zero();
+    Eigen::Matrix3d Rwb_ = Eigen::Matrix3d::Identity();
+    Eigen::Vector3d ba_ = Eigen::Vector3d::Zero();
+    Eigen::Vector3d bg_ = Eigen::Vector3d::Zero();
+
+    void Update(std::shared_ptr<Parameter> param_ptr, const Eigen::VectorXd & X, const Eigen::MatrixXd & C_new, std::map<int, std::shared_ptr<CamState>, std::less<int>, 
+        Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<CamState>>>> & cam_states) {
+        if (param_ptr->state_type_ == 0) {
+            Rwb_ = Converter::ExpSO3(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
+            Vw_ += X.block<3, 1>(param_ptr->VEL_INDEX_STATE_, 0);
+            twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);
+            ba_ += X.block<3, 1>(param_ptr->ACC_BIAS_INDEX_STATE_, 0);
+            bg_ += X.block<3, 1>(param_ptr->GYRO_BIAS_INDEX_STATE_, 0);
+        } else {
+            Rwb_ = Converter::ExpSO3(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
+            twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);
+        }
+
+        // 3
+        // Update the camera states.
+        // 更新相机姿态
+        auto cam_state_iter = cam_states.begin();
+        for (int i = 0; i < cam_states.size(); ++i, ++cam_state_iter)
+        {
+            const Eigen::VectorXd &delta_x_cam = X.segment<6>(param_ptr->STATE_DIM + i * 6);
+            const Eigen::Matrix3d dq_cam = Converter::ExpSO3(delta_x_cam.head<3>());
+            cam_state_iter->second->Rwc_ =  dq_cam * cam_state_iter->second->Rwc_;
+            cam_state_iter->second->twc_ += delta_x_cam.tail<3>();
+        }
+        C_ = C_new;
+    }
 };
 
 struct CompareTime {

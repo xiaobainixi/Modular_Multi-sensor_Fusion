@@ -113,7 +113,7 @@ bool CameraObserver::ComputeHZR(
         if (map_server.find(feature.id_) == map_server.end())
         {
             // This is a new feature.
-            map_server[feature.id_] = Feature(feature.id_);
+            map_server[feature.id_] = Feature(feature.id_, param_ptr_);
             map_server[feature.id_].observations[cam_states_next_id_] = feature.point_;
         }
         else
@@ -199,7 +199,7 @@ bool CameraObserver::ComputeHZR(
         // 接下来要参与优化的点加入到这个变量中
         processed_feature_ids.push_back(feature.id_);
     }
-    LOG(INFO) << aa << " " << bb << " " << cc << " " << dd;
+    // LOG(INFO) << aa << " " << bb << " " << cc << " " << dd;
     // cout << "invalid/processed feature #: " <<
     //   invalid_feature_ids.size() << "/" <<
     //   processed_feature_ids.size() << endl;
@@ -396,7 +396,7 @@ bool CameraObserver::ComputeHZR(
             ee += involved_cam_state_ids.size();
             jacobian_row_size += 2 * involved_cam_state_ids.size() - 3;
         }
-        LOG(INFO) << aa << " " << bb << " " << cc << " " << dd << " " << ee << " " << map_points.size();
+        // LOG(INFO) << aa << " " << bb << " " << cc << " " << dd << " " << ee << " " << map_points.size();
         if (viewer_ptr_)
             viewer_ptr_->DrawFeatures(map_points);
         // Compute the Jacobian and residual.

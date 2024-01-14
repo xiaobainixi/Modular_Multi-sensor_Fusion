@@ -24,6 +24,7 @@ public:
             // todo imu+wheel
         } else if (!param_ptr_->use_imu_ && param_ptr_->wheel_use_type_ == 1) {
             // todo wheel
+            predictor_ptr_ = std::make_shared<WheelPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
         }
 
         if (param_ptr->gps_wheel_align_)
@@ -40,7 +41,6 @@ public:
             image_processor_ptr_ = std::make_shared<ImageProcessor>(param_ptr, data_manager_ptr, state_manager_ptr);
             camera_observer_ptr_ = std::make_shared<CameraObserver>(param_ptr, data_manager_ptr, state_manager_ptr, viewer_ptr_);
         }
-        
 
         run_thread_ptr_ = std::make_shared<std::thread>(&Filter::Run, this);
     }
