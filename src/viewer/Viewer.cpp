@@ -51,17 +51,22 @@ void Viewer::DrawWheelOdom(const Eigen::Matrix3d &G_R_O, const Eigen::Vector3d &
     }
 }
 
-void Viewer::DrawFeatures(const std::vector<Eigen::Vector3d> &features)
+void Viewer::DrawFeatures(const std::vector<Eigen::Vector3d> &features, bool clear_old)
 {
     std::lock_guard<std::mutex> lg(data_buffer_mutex_);
-    for (const Eigen::Vector3d &ft : features)
-    {
-        features_.push_back(ft);
+    if (clear_old) {
+        features_ = std::deque<Eigen::Vector3d>(features.begin(), features.end());
+    } else {
+        for (const Eigen::Vector3d &ft : features)
+        {
+            features_.push_back(ft);
+        }
+        while (features_.size() > config_.max_num_features)
+        {
+            features_.pop_front();
+        }
     }
-    while (features_.size() > config_.max_num_features)
-    {
-        features_.pop_front();
-    }
+        
 }
 
 void Viewer::DrawColorImage(const cv::Mat &image)

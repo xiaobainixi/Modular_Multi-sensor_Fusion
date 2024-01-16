@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include <ctime>
 
-#include <random_numbers/random_numbers.h>
+// #include <random_numbers/random_numbers.h>
 #include "visual/ImageProcessor.h"
 
 ImageProcessor::ImageProcessor(
@@ -58,16 +58,17 @@ bool ImageProcessor::loadParameters()
     LOG(INFO) << "Load vo param";
     // // Camera calibration parameters
     // // 1. 畸变模型，默认都是用的radtan模型
+    cam0_distortion_model = param_ptr_->cam_distortion_model_;
     // nh.param<string>("cam0/distortion_model", cam0_distortion_model, string("radtan"));
     // nh.param<string>("cam1/distortion_model", cam1_distortion_model, string("radtan"));
 
     // // 3. 左右目内参
     // vector<double> cam0_intrinsics_temp(4);
     // nh.getParam("cam0/intrinsics", cam0_intrinsics_temp);
-    // cam0_intrinsics[0] = cam0_intrinsics_temp[0];
-    // cam0_intrinsics[1] = cam0_intrinsics_temp[1];
-    // cam0_intrinsics[2] = cam0_intrinsics_temp[2];
-    // cam0_intrinsics[3] = cam0_intrinsics_temp[3];
+    cam0_intrinsics[0] = param_ptr_->cam_intrinsics_[0];
+    cam0_intrinsics[1] = param_ptr_->cam_intrinsics_[1];
+    cam0_intrinsics[2] = param_ptr_->cam_intrinsics_[2];
+    cam0_intrinsics[3] = param_ptr_->cam_intrinsics_[3];
 
     // vector<double> cam1_intrinsics_temp(4);
     // nh.getParam("cam1/intrinsics", cam1_intrinsics_temp);
@@ -80,6 +81,7 @@ bool ImageProcessor::loadParameters()
     // vector<double> cam0_distortion_coeffs_temp(4);
     // nh.getParam("cam0/distortion_coeffs",
     //             cam0_distortion_coeffs_temp);
+    cam0_distortion_coeffs = param_ptr_->cam_distortion_coeffs_;
     // cam0_distortion_coeffs[0] = cam0_distortion_coeffs_temp[0];
     // cam0_distortion_coeffs[1] = cam0_distortion_coeffs_temp[1];
     // cam0_distortion_coeffs[2] = cam0_distortion_coeffs_temp[2];
@@ -1196,14 +1198,19 @@ void ImageProcessor::publish()
         curr_cam0_points, cam0_intrinsics, cam0_distortion_model,
         cam0_distortion_coeffs, curr_cam0_points_undistorted);
     // 3. 发送消息，存放的是所有点以及id
+    FeatureData feature_data;
+    feature_data.time_ = cam0_curr_img_ptr->stamp_;
+    feature_data.features_.reserve(curr_ids.size());
     for (int i = 0; i < curr_ids.size(); ++i)
     {
-        // feature_msg_ptr->features[i].id = curr_ids[i];
-        // feature_msg_ptr->features[i].u0 = curr_cam0_points_undistorted[i].x;
-        // feature_msg_ptr->features[i].v0 = curr_cam0_points_undistorted[i].y;
-    }
+        FeaturePoint feature_point;
 
-    return;
+        feature_point.id_ = curr_ids[i];
+        feature_point.point_.x() = curr_cam0_points_undistorted[i].x;
+        feature_point.point_.y() = curr_cam0_points_undistorted[i].y;
+        feature_data.features_.push_back(feature_point);
+    }
+    data_manager_ptr_->Input(feature_data);
 }
 
 /**

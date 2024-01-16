@@ -16,7 +16,7 @@
 class Predictor {
 public:
     Predictor() = default;
-
+    virtual void RunOnce() {}
 protected:
     virtual void Run() = 0;
     std::shared_ptr<std::thread> run_thread_ptr_;

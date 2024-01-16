@@ -2,6 +2,7 @@
 
 DataLoader::DataLoader(const std::shared_ptr<Parameter> & param_ptr) {
     param_ptr_ = param_ptr;
+    std::cout << "data path: " << param_ptr_->data_path_ << std::endl;
     ReadIMU(param_ptr_->data_path_ + "/imu.txt");
     ReadGPS(param_ptr_->data_path_ + "/gps.txt");
     ReadWheel(param_ptr_->data_path_ + "/encoder.txt");
@@ -33,6 +34,10 @@ DataLoader::DataLoader(const std::shared_ptr<Parameter> & param_ptr) {
 }
 
 InputData DataLoader::GetNextData() {
+    if (datas_.empty()) {
+        std::cerr << "data empty" << std::endl;
+        exit(0);
+    }
     InputData output_data = datas_.front();
     // todo add read image
     datas_.pop();
@@ -98,6 +103,7 @@ bool DataLoader::ReadIMU(const std::string & path)
         imu_datas_.push(data);
     }
     imu_file.close();
+    LOG(INFO) << "imu data size: " << imu_datas_.size() << std::endl;
     return true;
 }
 
@@ -139,7 +145,9 @@ bool DataLoader::ReadGPS(const std::string & path) {
         data.data_type_ = 2;
         gps_datas_.push(data);
     }
+    LOG(INFO) << "gps data size: " << gps_datas_.size() << std::endl;
     gps_file.close();
+    return true;
 }
 
 bool DataLoader::ReadWheel(const std::string & path) {
@@ -180,8 +188,9 @@ bool DataLoader::ReadWheel(const std::string & path) {
         data.time_ = cur_encoder_data_time;
         data.data_type_ = 1;
         double delta_time = cur_encoder_data_time - last_encoder_data_time;
-        data.lv_ = (cur_left_encoder_data - last_left_encoder_data) * param_ptr_->encoder_resolution_ / delta_time;
-        data.rv_ = (cur_right_encoder_data - last_right_encoder_data) * param_ptr_->encoder_resolution_ / delta_time;
+        data.lv_ = (cur_left_encoder_data - last_left_encoder_data) * param_ptr_->wheel_kl_ / delta_time;
+        data.rv_ = (cur_right_encoder_data - last_right_encoder_data) * param_ptr_->wheel_kr_ / delta_time;
+
         wheel_datas_.push(data);
 
         last_encoder_data_time = cur_encoder_data_time;
@@ -189,6 +198,8 @@ bool DataLoader::ReadWheel(const std::string & path) {
         last_right_encoder_data = cur_right_encoder_data;
     }
     wheel_file.close();
+    LOG(INFO) << "wheel data size: " << wheel_datas_.size() << std::endl;
+    return true;
 }
 
 bool DataLoader::ReadImage(const std::string & path) {
@@ -215,9 +226,11 @@ bool DataLoader::ReadImage(const std::string & path) {
         InputData data;
         data.time_ = std::stod(tmp.substr(5, 5)) + std::stod(tmp.substr(10, 3)) * 0.001;
         data.data_type_ = 3;
-        data.img_path_ = param_ptr_->data_path_ + img_data_line;
+        data.img_path_ = param_ptr_->data_path_ + "/" + img_data_line;
         image_datas_.push(data);
 
     }
     img_file.close();
+    LOG(INFO) << "image data size: " << image_datas_.size() << std::endl;
+    return true;
 }

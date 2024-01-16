@@ -15,6 +15,8 @@ bool GPSWheelObserver::ComputeHZR(
         viewer_ptr_->DrawGps(Eigen::Vector3d(x, y, z));
 
     // 2. wheel
+    H_ = Eigen::MatrixXd::Zero(6, param_ptr_->STATE_DIM + state_manager_ptr_->cam_states_.size() * 6);
+    H_.block<3, 3>(0, param_ptr_->POSI_INDEX) = Eigen::Matrix3d::Identity();
     H_.block<3, 3>(3, param_ptr_->VEL_INDEX_STATE_) = state_ptr->Rwb_.transpose();
     H_.block<3, 3>(3, param_ptr_->ORI_INDEX_STATE_) = state_ptr->Rwb_.transpose() * Converter::Skew(state_ptr->Vw_);
 
