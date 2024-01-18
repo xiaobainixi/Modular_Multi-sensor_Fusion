@@ -3,3 +3,5 @@ build/*
 .vscode/**
 data/**
 *.png
+compile_commands.json
+.cache/*

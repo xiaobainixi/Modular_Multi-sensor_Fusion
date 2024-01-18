@@ -21,7 +21,7 @@ include(cmake/FindSuiteSparse.cmake)
 # find
 include_directories(${GLOG_INCLUDE_DIRS})
 
-find_package(OpenCV 4)
+find_package(OpenCV 3)
 if(NOT OpenCV_FOUND)
     message(FATAL_ERROR "OpenCV > 4 not found.")
     find_package(OpenCV 3)
@@ -34,6 +34,8 @@ find_package(Eigen3 REQUIRED)
 find_package(Pangolin REQUIRED)
 include_directories(${Pangolin_INCLUDE_DIRS})
 
+find_package( Sophus REQUIRED )
+
 include_directories(
     /opt/local/include   #mac os
     ${PROJECT_SOURCE_DIR}/src
@@ -41,6 +43,7 @@ include_directories(
     ${EIGEN3_INCLUDE_DIR}
     ${OpenCV_INCLUDE_DIR}
     ${SUITESPARSE_INCLUDE_DIRS}
+    ${Sophus_INCLUDE_DIRS}
 )
 
 add_library(${PROJECT_NAME} SHARED
@@ -71,6 +74,7 @@ target_link_libraries(${PROJECT_NAME}
     ${Pangolin_LIBRARIES}
     ${GLOG_LIBRARIES}
     ${SUITESPARSE_LIBRARIES}
+    ${Sophus_LIBRARIES}
 )
 
 add_executable(data_test app/data_test.cpp)

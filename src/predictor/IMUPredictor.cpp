@@ -13,6 +13,8 @@ void IMUPredictor::RunOnce() {
         if (!data_manager_ptr_->GetLastIMUData(cur_data, last_data_.time_)) {
             return;
         }
+
+        // TODO : 这部分代码改为用imu的预积分 imu_preint_ptr_ 来进行管理
         
         // 第一个数据
         if (last_data_.time_ <= 0.0) {
