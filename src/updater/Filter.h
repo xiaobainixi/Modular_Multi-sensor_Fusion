@@ -27,6 +27,11 @@ public:
             predictor_ptr_ = std::make_shared<WheelPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
         }
 
+        if (!predictor_ptr_) {
+            LOG(ERROR) << "没有初始化预测模块，程序将不会运行，请假差配置文件";
+            return;
+        }
+
         if (param_ptr->gps_wheel_align_)
             gps_wheel_observer_ptr_ = std::make_shared<GPSWheelObserver>(param_ptr, data_manager_ptr, state_manager_ptr, viewer_ptr_);
         else {

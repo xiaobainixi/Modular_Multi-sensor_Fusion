@@ -4,7 +4,7 @@
 fusion_model: 0
 
 # predict type
-use_imu: 0
+use_imu: 1
 wheel_use_type: 1
 
 # obs type
