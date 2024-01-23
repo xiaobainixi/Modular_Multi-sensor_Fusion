@@ -120,7 +120,8 @@ void Filter::Run() {
     // 循环读数据
     while (1)
     {
-        predictor_ptr_->RunOnce();
+        if (predictor_ptr_)
+            predictor_ptr_->RunOnce();
         // 简易法
         std::shared_ptr<State> state_ptr;
         if(!state_manager_ptr_->GetNearestState(state_ptr)) {
