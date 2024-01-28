@@ -30,11 +30,6 @@ void WheelPredictor::RunOnce() {
         return;
     }
 
-    // note: 轮速计的数据是左轮速和右轮速，需要转换成线速度和角速度1英寸d
-    // note: 根据原文，后轮就是汽车中心，车轮使用18英寸的轮胎，直径为45.72cm，半径r = 22.86cm
-    // note: encoder是增量式的，所以需要用现在的值减去上一个值，得到增量
-    // todo 针对某个数据集的处理放到读数据的代码中
-
     // 计算线速度和角速度
     double v = (cur_data.lv_ + cur_data.rv_) * 0.5;
     double w = (cur_data.rv_ - cur_data.lv_) / param_ptr_->wheel_b_;
@@ -56,9 +51,9 @@ void WheelPredictor::RunOnce() {
     cur_state_ptr->time_ = cur_data.time_;
 
     // 世界坐标系下的速度
-    // cur_state_ptr->Vw_ = last_state_ptr->Rwb_ * velo_vec;
+    cur_state_ptr->Vw_ = last_state_ptr->Rwb_ * velo_vec;
     // 世界坐标系的位置
-    cur_state_ptr->twb_ = last_state_ptr->twb_ + last_state_ptr->Rwb_ * velo_vec * delta_t;
+    cur_state_ptr->twb_ = last_state_ptr->twb_ + last_state_ptr->Vw_ * delta_t;
 
     // 世界坐标系的位置
     // cur_state_ptr->twb_ = last_state_ptr->twb_ + last_state_ptr->Rwb_ * velo_vec * delta_t;
@@ -84,11 +79,11 @@ void WheelPredictor::RunOnce() {
     // 这里先试用位移和旋转作为状态，不考虑使用速度（v, t, R, ba, bg，一共15维的状态）
     Eigen::MatrixXd F = Eigen::MatrixXd::Zero(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM);
     // 雅可比矩阵：
-    // dX / dt = - R_g_o * skew(v * dt) | I
-    // dX / dR = exp(w * dt)            | 0
     F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->ORI_INDEX_STATE_) = -Converter::Skew(last_state_ptr->Rwb_ * velo_vec);
-    // F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->POSI_INDEX) = Eigen::Matrix3d::Identity();
-    // F.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) = Converter::ExpSO3(omega_vec);
+
+    // 使用速度进行求导，错误
+    // F.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) = -Converter::Skew(last_state_ptr->Rwb_ * velo_vec);
+    // F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->VEL_INDEX_STATE_) = Eigen::Matrix3d::Identity();
 
     // note: 噪声直接累加
     // 增加位移和旋转的噪声，其中，旋转的噪声是Identity，位移的噪声是旋转*Identity
@@ -96,13 +91,14 @@ void WheelPredictor::RunOnce() {
     G.block<3, 3>(param_ptr_->POSI_INDEX, 0) = last_state_ptr->Rwb_ * delta_t;
     G.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, 3) = last_state_ptr->Rwb_ * delta_t;
 
+    double w_noise = param_ptr_->wheel_noise_factor_ / param_ptr_->wheel_b_;
     Eigen::Matrix<double, 6, 6> odom_dispersed_noise_cov = Eigen::Matrix<double, 6, 6>::Zero();
-    odom_dispersed_noise_cov(0, 0) = v * v * param_ptr_->wheel_noise_factor_ * param_ptr_->wheel_noise_factor_;  // 这几维不作观测，所以不需要噪声
-    odom_dispersed_noise_cov(1, 1) = 0.0;
+    odom_dispersed_noise_cov(0, 0) = param_ptr_->wheel_vel_noise_ * param_ptr_->wheel_vel_noise_;  
+    odom_dispersed_noise_cov(1, 1) = 0.0; // 这几维不作观测，所以不需要噪声
     odom_dispersed_noise_cov(2, 2) = 0.0;
     odom_dispersed_noise_cov(3, 3) = 0.0;
-    odom_dispersed_noise_cov(4, 4) = 0.0; // v * v * param_ptr_->wheel_noise_factor_ * param_ptr_->wheel_noise_factor_;
-    odom_dispersed_noise_cov(5, 5) = w * w * param_ptr_->wheel_noise_factor_ * param_ptr_->wheel_noise_factor_;
+    odom_dispersed_noise_cov(4, 4) = 0.0;
+    odom_dispersed_noise_cov(5, 5) = w_noise * w_noise;
 
     Eigen::MatrixXd Phi = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) + F * delta_t;
 

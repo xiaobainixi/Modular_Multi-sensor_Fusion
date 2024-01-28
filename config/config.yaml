@@ -4,7 +4,7 @@
 fusion_model: 0
 
 # predict type
-use_imu: 1
+use_imu: 0
 wheel_use_type: 1
 
 # obs type
@@ -27,7 +27,7 @@ gps_z_noise: 0.5
 wheel_kl: 0.00047820240382508
 wheel_kr: 0.00047768621928995
 wheel_b: 1.52439
-wheel_noise_factor: 0.1
+wheel_vel_noise: 0.1  # m/s
 # old
 encoder_resolution: 0.00047820240382508
 wheel_x_noise: 0.1
@@ -64,5 +64,5 @@ tbc: !!opencv-matrix
 
 # data
 play_speed: 4.0
-data_path: /home/l/slam/data
-#data_path: /home/fengbro/book_ws/Modular_Multi-sensor_Fusion/data
+# data_path: /home/l/slam/data
+data_path: /home/fengbro/book_ws/Modular_Multi-sensor_Fusion/data

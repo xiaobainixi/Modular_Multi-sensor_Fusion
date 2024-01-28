@@ -160,10 +160,10 @@ public:
             wheel_b_ = node.real();
         LOG(INFO) << "wheel_b: " << wheel_b_;
 
-        node = f_settings["wheel_noise_factor"];
+        node = f_settings["wheel_vel_noise"];
         if (!node.empty() && node.isReal())
-            wheel_noise_factor_ = node.real();
-        LOG(INFO) << "wheel_noise_factor: " << wheel_noise_factor_;
+            wheel_vel_noise_ = node.real();
+        LOG(INFO) << "wheel_vel_noise: " << wheel_vel_noise_;
 
         node = f_settings["encoder_resolution"];
         if (!node.empty() && node.isReal())
@@ -297,7 +297,7 @@ public:
     double wheel_kl_ = 0.00047820240382508;
     double wheel_kr_ = 0.00047768621928995;
     double wheel_b_ = 1.52439;
-    double wheel_noise_factor_ = 0.2;
+    double wheel_vel_noise_ = 0.2;  // wheel的速度噪声
     // note: old param for wheel
     double encoder_resolution_ = 0.00047820240382508;
     double wheel_x_noise_ = 0.001;
