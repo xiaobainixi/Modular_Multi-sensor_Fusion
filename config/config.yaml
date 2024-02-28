@@ -8,8 +8,9 @@ use_imu: 1
 wheel_use_type: 1
 
 # obs type
+# gps与轮速做时间对齐后一起更新，否则为分开更新
 gps_wheel_align: 1
-use_gps: 0
+use_gps: 1
 use_camera: 1
 
 # sensor conv
@@ -63,6 +64,6 @@ tbc: !!opencv-matrix
    data: [1.71239, 0.247401, -0.11589]
 
 # data
-play_speed: 4.0
+play_speed: 1.0
 # data_path: /home/l/slam/data
-data_path: /home/fengbro/book_ws/Modular_Multi-sensor_Fusion/data
+data_path: /home/l/slam/data

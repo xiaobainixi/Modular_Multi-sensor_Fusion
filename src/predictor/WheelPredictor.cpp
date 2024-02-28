@@ -50,10 +50,8 @@ void WheelPredictor::RunOnce() {
 
     cur_state_ptr->time_ = cur_data.time_;
 
-    // 世界坐标系下的速度
-    cur_state_ptr->Vw_ = last_state_ptr->Rwb_ * velo_vec;
     // 世界坐标系的位置
-    cur_state_ptr->twb_ = last_state_ptr->twb_ + last_state_ptr->Vw_ * delta_t;
+    cur_state_ptr->twb_ = last_state_ptr->twb_ + last_state_ptr->Rwb_ * velo_vec * delta_t;
 
     // 世界坐标系的位置
     // cur_state_ptr->twb_ = last_state_ptr->twb_ + last_state_ptr->Rwb_ * velo_vec * delta_t;
@@ -91,7 +89,7 @@ void WheelPredictor::RunOnce() {
     G.block<3, 3>(param_ptr_->POSI_INDEX, 0) = last_state_ptr->Rwb_ * delta_t;
     G.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, 3) = last_state_ptr->Rwb_ * delta_t;
 
-    double w_noise = param_ptr_->wheel_noise_factor_ / param_ptr_->wheel_b_;
+    double w_noise = param_ptr_->wheel_vel_noise_ / param_ptr_->wheel_b_;
     Eigen::Matrix<double, 6, 6> odom_dispersed_noise_cov = Eigen::Matrix<double, 6, 6>::Zero();
     odom_dispersed_noise_cov(0, 0) = param_ptr_->wheel_vel_noise_ * param_ptr_->wheel_vel_noise_;  
     odom_dispersed_noise_cov(1, 1) = 0.0; // 这几维不作观测，所以不需要噪声

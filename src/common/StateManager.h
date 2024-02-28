@@ -62,9 +62,16 @@ public:
             twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);
             ba_ += X.block<3, 1>(param_ptr->ACC_BIAS_INDEX_STATE_, 0);
             bg_ += X.block<3, 1>(param_ptr->GYRO_BIAS_INDEX_STATE_, 0);
-        } else {
+        } else if(param_ptr->state_type_ == 1) {
             Rwb_ = Converter::ExpSO3(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
             twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);
+        } else if (param_ptr->state_type_ == 2) {
+            Rwb_ = Converter::ExpSO3(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
+            twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);
+            bg_ += X.block<3, 1>(param_ptr->GYRO_BIAS_INDEX_STATE_, 0);
+        } else {
+            LOG(ERROR) << "未知状态类型";
+            exit(0);
         }
 
         // 3

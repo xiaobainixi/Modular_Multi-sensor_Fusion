@@ -83,13 +83,14 @@ void IMUPredictor::RunOnce() {
         G.block<3, 3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, 3) = Eigen::Matrix3d::Identity() * delta_t;
         G.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, 6) = last_state_ptr->Rwb_ * delta_t;
         G.block<3, 3>(param_ptr_->ACC_BIAS_INDEX_STATE_, 9) = Eigen::Matrix3d::Identity() * delta_t;
+        G.block<3, 3>(param_ptr_->POSI_INDEX, 6) = 0.5 * last_state_ptr->Rwb_ * delta_t * delta_t;
 
         Eigen::MatrixXd Phi = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) + F * delta_t;
 
         cur_state_ptr->C_ = last_state_ptr->C_;
         cur_state_ptr->C_.block(0, 0, param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) =
             Phi * last_state_ptr->C_.block(0, 0, param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) * Phi.transpose() +
-            G * param_ptr_->imu_dispersed_noise_cov_ * G.transpose();
+            G * param_ptr_->predict_dispersed_noise_cov_ * G.transpose();
 
         if (state_manager_ptr_->cam_states_.size() > 0)
         {

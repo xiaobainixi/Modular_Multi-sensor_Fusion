@@ -29,7 +29,7 @@ public:
         }
 
         if (!predictor_ptr_) {
-            LOG(ERROR) << "没有初始化预测模块，程序将不会运行，请假差配置文件";
+            LOG(ERROR) << "没有初始化预测模块，程序将不会运行，请检查配置文件";
             return;
         }
 

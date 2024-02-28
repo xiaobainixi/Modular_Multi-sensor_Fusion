@@ -75,19 +75,6 @@ public:
             wheel_use_type_ = int(node.real());
         LOG(INFO) << "wheel_use_type: " << wheel_use_type_;
 
-        if (!use_imu_ && wheel_use_type_ != 1)
-        {
-            LOG(ERROR) << "至少选择一个传感器作为预测";
-            exit(0);
-        }
-        else if (!use_imu_ && wheel_use_type_ == 1)
-        {
-            state_type_ = 1;
-            STATE_DIM = 6;
-            POSI_INDEX = 0;
-            ORI_INDEX_STATE_ = 3;
-        }
-
         // 观测
         node = f_settings["use_gps"];
         if (!node.empty() && node.isInt())
@@ -200,17 +187,51 @@ public:
             data_path_ = node.string();
         LOG(INFO) << "data folder: " << data_path_;
 
-        imu_dispersed_noise_cov_ =
-            Eigen::Matrix<double, 12, 12>::Zero();
-        imu_dispersed_noise_cov_.block<3, 3>(0, 0) =
-            Eigen::Matrix3d::Identity() * gyro_noise_ * gyro_noise_;
-        imu_dispersed_noise_cov_.block<3, 3>(3, 3) =
-            Eigen::Matrix3d::Identity() * gyro_bias_noise_ * gyro_bias_noise_;
-        imu_dispersed_noise_cov_.block<3, 3>(6, 6) =
-            Eigen::Matrix3d::Identity() * acc_noise_ * acc_noise_;
-        imu_dispersed_noise_cov_.block<3, 3>(9, 9) =
-            Eigen::Matrix3d::Identity() * acc_bias_noise_ * acc_bias_noise_;
+        if (!use_imu_ && wheel_use_type_ != 1)
+        {
+            LOG(ERROR) << "至少选择一个传感器作为预测";
+            exit(0);
+        }
+        else if (!use_imu_ && wheel_use_type_ == 1)
+        {
+            state_type_ = 1;
+            STATE_DIM = 6;
+            POSI_INDEX = 0;
+            ORI_INDEX_STATE_ = 3;
 
+            double w_noise = wheel_vel_noise_ / wheel_b_;
+            predict_dispersed_noise_cov_ =
+                Eigen::Matrix<double, 6, 6>::Zero();
+            predict_dispersed_noise_cov_(0, 0) = wheel_vel_noise_ * wheel_vel_noise_;
+            predict_dispersed_noise_cov_(5, 5) = w_noise * w_noise;
+        }
+        else if (use_imu_ && wheel_use_type_ == 1)
+        {
+            state_type_ = 2;
+            STATE_DIM = 9;
+            POSI_INDEX = 0;
+            ORI_INDEX_STATE_ = 3;
+            GYRO_BIAS_INDEX_STATE_ = 6;
+
+            predict_dispersed_noise_cov_ =
+                Eigen::Matrix<double, 9, 9>::Zero();
+            predict_dispersed_noise_cov_.block<3, 3>(0, 0) =
+                Eigen::Matrix3d::Identity() * gyro_noise_ * gyro_noise_;
+            predict_dispersed_noise_cov_.block<3, 3>(3, 3) =
+                Eigen::Matrix3d::Identity() * gyro_bias_noise_ * gyro_bias_noise_;
+            predict_dispersed_noise_cov_(6, 6) = wheel_vel_noise_ * wheel_vel_noise_;
+        } else {
+            predict_dispersed_noise_cov_ =
+                Eigen::Matrix<double, 12, 12>::Zero();
+            predict_dispersed_noise_cov_.block<3, 3>(0, 0) =
+                Eigen::Matrix3d::Identity() * gyro_noise_ * gyro_noise_;
+            predict_dispersed_noise_cov_.block<3, 3>(3, 3) =
+                Eigen::Matrix3d::Identity() * gyro_bias_noise_ * gyro_bias_noise_;
+            predict_dispersed_noise_cov_.block<3, 3>(6, 6) =
+                Eigen::Matrix3d::Identity() * acc_noise_ * acc_noise_;
+            predict_dispersed_noise_cov_.block<3, 3>(9, 9) =
+                Eigen::Matrix3d::Identity() * acc_bias_noise_ * acc_bias_noise_;
+        }
 
         node = f_settings["visual_observation_noise"];
         if (!node.empty() && node.isReal())
@@ -290,7 +311,7 @@ public:
     double gps_x_noise_ = 0.001;
     double gps_y_noise_ = 0.001;
     double gps_z_noise_ = 0.001;
-    Eigen::Matrix<double, 12, 12> imu_dispersed_noise_cov_;
+    Eigen::MatrixXd predict_dispersed_noise_cov_;
 
     // wheel
     // note: new param for wheel
