@@ -1,0 +1,1 @@
+docker build -t fusion:1.0 .
