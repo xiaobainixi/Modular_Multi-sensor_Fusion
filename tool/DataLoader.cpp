@@ -46,8 +46,9 @@ InputData DataLoader::GetNextData() {
         gettimeofday(&t2_, NULL);
         double used_time = (t2_.tv_sec - t1_.tv_sec) + (double)(t2_.tv_usec - t1_.tv_usec)/1000000.0;
         double delta_time = output_data.time_ - last_data_time_ - used_time;
-        if (delta_time > 0)
-            usleep(delta_time * 1e6 / param_ptr_->play_speed_);
+        if (delta_time > 0) {
+          usleep(delta_time * 1e6 / param_ptr_->play_speed_);
+        }
     }
 
     gettimeofday(&t1_, NULL);

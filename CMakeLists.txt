@@ -36,6 +36,8 @@ include_directories(${Pangolin_INCLUDE_DIRS})
 
 find_package( Sophus REQUIRED )
 
+find_package(GTSAM REQUIRED)
+
 include_directories(
     /opt/local/include   #mac os
     ${PROJECT_SOURCE_DIR}/src
@@ -44,6 +46,7 @@ include_directories(
     ${OpenCV_INCLUDE_DIR}
     ${SUITESPARSE_INCLUDE_DIRS}
     ${Sophus_INCLUDE_DIRS}
+    ${GTSAM_INCLUDE_DIR}
 )
 
 add_library(${PROJECT_NAME} SHARED
@@ -75,6 +78,7 @@ target_link_libraries(${PROJECT_NAME}
     ${GLOG_LIBRARIES}
     ${SUITESPARSE_LIBRARIES}
     ${Sophus_LIBRARIES}
+    ${GTSAM_LIBRARIES}
 )
 
 add_executable(data_test app/data_test.cpp)

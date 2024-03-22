@@ -66,4 +66,4 @@ tbc: !!opencv-matrix
 # data
 play_speed: 1.0
 # data_path: /home/l/slam/data
-data_path: /home/l/slam/data
+data_path: /home/dell/ddd/baiduyun_download/mmsf_data/urban30/data

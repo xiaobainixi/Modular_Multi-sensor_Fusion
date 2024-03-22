@@ -8,6 +8,10 @@ void IMUPredictor::Run() {
     }
 }
 
+// TODO : 在其中加入gtsam的优化
+    // 1. 增加接口完成IMU数据往优化框架中去添加
+    // 2. 增加接口来触发清空对应的buf
+
 void IMUPredictor::RunOnce() {
         IMUData cur_data;
         if (!data_manager_ptr_->GetLastIMUData(cur_data, last_data_.time_)) {
