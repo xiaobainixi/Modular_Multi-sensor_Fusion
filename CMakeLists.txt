@@ -21,7 +21,7 @@ include(cmake/FindSuiteSparse.cmake)
 # find
 include_directories(${GLOG_INCLUDE_DIRS})
 
-find_package(OpenCV 3)
+find_package(OpenCV)
 if(NOT OpenCV_FOUND)
     message(FATAL_ERROR "OpenCV > 4 not found.")
     find_package(OpenCV 3)
