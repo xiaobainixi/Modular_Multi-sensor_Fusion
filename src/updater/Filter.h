@@ -1,5 +1,7 @@
 #pragma once
 #include "Updater.h"
+#include "../optimize_fusion/ceres_fusion.hpp"
+#include "../predictor/CeresPredictor.h"
 
 enum OBSType {
     GPS = 1,
@@ -18,15 +20,17 @@ public:
         data_manager_ptr_ = data_manager_ptr;
         state_manager_ptr_ = state_manager_ptr;
 
-        if (param_ptr_->use_imu_ && param_ptr_->wheel_use_type_ != 1) {
-            predictor_ptr_ = std::make_shared<IMUPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
-        } else if (param_ptr_->use_imu_ && param_ptr_->wheel_use_type_ == 1) {
-            // todo imu+wheel
-            predictor_ptr_ = std::make_shared<WheelIMUPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
-        } else if (!param_ptr_->use_imu_ && param_ptr_->wheel_use_type_ == 1) {
-            // todo wheel
-            predictor_ptr_ = std::make_shared<WheelPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
-        }
+        // if (param_ptr_->use_imu_ && param_ptr_->wheel_use_type_ != 1) {
+        //     predictor_ptr_ = std::make_shared<IMUPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
+        // } else if (param_ptr_->use_imu_ && param_ptr_->wheel_use_type_ == 1) {
+        //     // todo imu+wheel
+        //     predictor_ptr_ = std::make_shared<WheelIMUPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
+        // } else if (!param_ptr_->use_imu_ && param_ptr_->wheel_use_type_ == 1) {
+        //     // todo wheel
+        //     predictor_ptr_ = std::make_shared<WheelPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
+        // }
+
+        predictor_ptr_ = std::make_shared<CeresPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
 
         if (!predictor_ptr_) {
             LOG(ERROR) << "没有初始化预测模块，程序将不会运行，请检查配置文件";
@@ -56,6 +60,7 @@ private:
     void Run();
     void DelayedRun();
     void UpdateFromGPS(const std::shared_ptr<State> & state_ptr);
+    void UpdateFromGPSUseCeres(const std::shared_ptr<State> & state_ptr, std::shared_ptr<CeresBasedFusionInterface> ceres_fusion);
     void UpdateFromWheel(const std::shared_ptr<State> & state_ptr);
     void UpdateFromGPSWheel(const std::shared_ptr<State> & state_ptr);
     void UpdateFromCamera(const std::shared_ptr<State> & state_ptr);

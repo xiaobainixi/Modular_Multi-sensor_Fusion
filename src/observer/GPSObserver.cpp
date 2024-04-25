@@ -24,3 +24,16 @@ bool GPSObserver::ComputeHZR(
     R = R_;
     return true;
 }
+
+bool GPSObserver::GetGpsENUData(const GPSData & gps_data, Eigen::Vector3d& gps_enu) {
+    double x = 0.0, y = 0.0, z = 0.0;
+    if (!coo_trans_ptr_) {
+        coo_trans_ptr_ = std::make_shared<CooTrans>(gps_data.lat_, gps_data.lon_, gps_data.h_);
+    }
+    coo_trans_ptr_->getENH(gps_data.lat_, gps_data.lon_, gps_data.h_, x, y, z);
+    gps_enu = Eigen::Vector3d{x, y, z};
+    if (viewer_ptr_) {
+        viewer_ptr_->DrawGps(Eigen::Vector3d(x, y, z));
+    }
+    return true;
+}

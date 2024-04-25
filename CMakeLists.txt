@@ -36,6 +36,8 @@ include_directories(${Pangolin_INCLUDE_DIRS})
 
 find_package( Sophus REQUIRED )
 
+find_package(Ceres REQUIRED)
+
 include_directories(
     /opt/local/include   #mac os
     ${PROJECT_SOURCE_DIR}/src
@@ -44,7 +46,15 @@ include_directories(
     ${OpenCV_INCLUDE_DIR}
     ${SUITESPARSE_INCLUDE_DIRS}
     ${Sophus_INCLUDE_DIRS}
+    ${CERES_INCLUDE_DIRS}
 )
+
+file(GLOB FUSION_CERES_SOURCES "src/optimize_fusion/ceres_core/*.cpp")
+
+message("----------------------------------------------------------------------")
+message(${FUSION_CERES_SOURCES})
+message("----------------------------------------------------------------------")
+
 
 add_library(${PROJECT_NAME} SHARED
     src/observer/CameraObserver.cpp
@@ -56,6 +66,7 @@ add_library(${PROJECT_NAME} SHARED
     src/predictor/IMUPredictor.cpp
     src/predictor/WheelIMUPredictor.cpp
     src/predictor/WheelPredictor.cpp
+    src/predictor/CeresPredictor.cpp
 
     src/visual/ImageProcessor.cpp
 
@@ -66,6 +77,8 @@ add_library(${PROJECT_NAME} SHARED
     src/FusionSystem.cpp
 
     tool/DataLoader.cpp
+
+    ${FUSION_CERES_SOURCES}
 )
 
 target_link_libraries(${PROJECT_NAME}
@@ -75,6 +88,7 @@ target_link_libraries(${PROJECT_NAME}
     ${GLOG_LIBRARIES}
     ${SUITESPARSE_LIBRARIES}
     ${Sophus_LIBRARIES}
+    ${CERES_LIBRARIES}
 )
 
 add_executable(data_test app/data_test.cpp)

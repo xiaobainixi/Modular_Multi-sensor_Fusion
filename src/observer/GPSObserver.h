@@ -24,6 +24,8 @@ public:
 
     bool ComputeHZR(const GPSData & gps_data, const std::shared_ptr<State> & state_ptr, Eigen::MatrixXd & H, Eigen::MatrixXd & Z, Eigen::MatrixXd &R);
 
+    bool GetGpsENUData(const GPSData & gps_data, Eigen::Vector3d& gps_enu);
+
 private:
     std::shared_ptr<CooTrans> coo_trans_ptr_;
 };

@@ -34,6 +34,37 @@ void Filter::UpdateFromGPS(const std::shared_ptr<State> & state_ptr) {
     last_gps_data_.time_ = cur_gps_data.time_;
 }
 
+
+void Filter::UpdateFromGPSUseCeres(const std::shared_ptr<State> & state_ptr, std::shared_ptr<CeresBasedFusionInterface> ceres_fusion) {
+    if (!gps_observer_ptr_) {
+        return;
+    }
+
+
+    GPSData cur_gps_data;
+    if (!data_manager_ptr_->GetLastGPSData(cur_gps_data, last_gps_data_.time_) || std::abs(state_ptr->time_ - cur_gps_data.time_) > 0.01) {
+        return;
+    }
+
+    Eigen::Vector3d gps_enu;
+
+    gps_observer_ptr_->GetGpsENUData(cur_gps_data, gps_enu);
+    ceres_fusion->AddGpsData(cur_gps_data.time_, gps_enu);
+    // Eigen::VectorXd X;
+    // Eigen::MatrixXd K;
+    // Eigen::MatrixXd H;
+    // Eigen::MatrixXd Z;
+    // Eigen::MatrixXd R;
+    // Eigen::MatrixXd C_new;
+    // // 1. 计算ESKF需要的数据
+    // gps_observer_ptr_->ComputeHZR(cur_gps_data, state_ptr, H, Z, R);
+    // // 2. 计算更新量
+    // ESKFUpdate(H, state_ptr->C_, R, Z, C_new, X);
+    // // 3. 更新
+    // state_ptr->Update(param_ptr_, X, C_new, state_manager_ptr_->cam_states_);
+    last_gps_data_.time_ = cur_gps_data.time_;
+}
+
 void Filter::UpdateFromWheel(const std::shared_ptr<State> & state_ptr) {
     if (!wheel_observer_ptr_)
         return;
@@ -122,21 +153,36 @@ void Filter::Run() {
     {
         if (predictor_ptr_)
             predictor_ptr_->RunOnce();
-        // 简易法
-        std::shared_ptr<State> state_ptr;
-        if(!state_manager_ptr_->GetNearestState(state_ptr)) {
-            usleep(100);
-            continue;
-        }
 
-        if (param_ptr_->gps_wheel_align_)
-            UpdateFromGPSWheel(state_ptr);
-        else {
-            UpdateFromWheel(state_ptr);
-            UpdateFromGPS(state_ptr);
-        }
-        if (param_ptr_->use_camera_)
-            UpdateFromCamera(state_ptr);
+        // if (!predictor_ptr_->IsInit()) {
+        //     // get newest gps data
+        //     std::shared_ptr<State> state_ptr;
+        //     UpdateFromGPSUseCeres(state_ptr, predictor_ptr_->getInterface());
+        //     usleep(100);
+        //     continue;
+        // }
+
+        // TODO : 这个地方只用到了imu的最新时间
+        std::shared_ptr<State> state_ptr = std::make_shared<State>();
+        // state_ptr->time_ = predictor_ptr_->getInterface()->GetLatestImuTime();
+        state_ptr->time_ = predictor_ptr_->GetLastImuTime();
+        UpdateFromGPSUseCeres(state_ptr, predictor_ptr_->getInterface());
+
+        // 简易法
+        // std::shared_ptr<State> state_ptr;
+        // if(!state_manager_ptr_->GetNearestState(state_ptr)) {
+        //     usleep(100);
+        //     continue;
+        // }
+
+        // if (param_ptr_->gps_wheel_align_)
+        //     UpdateFromGPSWheel(state_ptr);
+        // else {
+        //     UpdateFromWheel(state_ptr);
+        //     UpdateFromGPS(state_ptr);
+        // }
+        // if (param_ptr_->use_camera_)
+        //     UpdateFromCamera(state_ptr);
 
         // result_file << state_ptr->twb_.x() << "," << state_ptr->twb_.y() << "," << state_ptr->twb_.z() << std::endl;
         usleep(100);

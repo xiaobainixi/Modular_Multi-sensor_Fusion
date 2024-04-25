@@ -13,10 +13,15 @@
 
 #include "viewer/Viewer.h"
 
+#include "../optimize_fusion/ceres_fusion.hpp"
+
 class Predictor {
 public:
     Predictor() = default;
     virtual void RunOnce() {}
+    virtual bool IsInit() {return true;}
+    virtual std::shared_ptr<CeresBasedFusionInterface> getInterface() {return nullptr;}
+    virtual double GetLastImuTime() {return -1;}
 protected:
     virtual void Run() = 0;
     std::shared_ptr<std::thread> run_thread_ptr_;
