@@ -9,6 +9,7 @@ public:
 
     GPSWheelObserver(
         const std::shared_ptr<Parameter> &param_ptr, const std::shared_ptr<DataManager> &data_manager_ptr,
+        const std::shared_ptr<CooTrans> &coo_trans_ptr,
         const std::shared_ptr<StateManager> &state_manager_ptr, std::shared_ptr<Viewer> viewer_ptr = nullptr)
                 
     {
@@ -16,6 +17,7 @@ public:
         param_ptr_ = param_ptr;
         data_manager_ptr_ = data_manager_ptr;
         state_manager_ptr_ = state_manager_ptr;
+        coo_trans_ptr_ = coo_trans_ptr;
 
         R_ = Eigen::MatrixXd::Zero(6, 6);
         R_(0, 0) = param_ptr->gps_x_noise_ * param_ptr->gps_x_noise_;

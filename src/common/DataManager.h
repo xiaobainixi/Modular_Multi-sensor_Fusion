@@ -56,6 +56,21 @@ struct FeatureData {
     Eigen::MatrixXd C_;
 };
 
+template<typename T>
+typename std::deque<T>::iterator upperBoundDeque(std::deque<T>& deque, const double& time) {
+    auto begin = deque.begin();
+    auto end = deque.end();
+    while (begin < end) {
+        auto mid = begin + std::distance(begin, end) / 2;
+        if ((*mid).time_ <= time) {
+            begin = mid + 1;
+        } else {
+            end = mid;
+        }
+    }
+    return begin;
+}
+
 class DataManager {
 public:
     DataManager(const std::shared_ptr<Parameter>& param_ptr) { param_ptr_ = param_ptr; }
@@ -191,6 +206,17 @@ public:
         return true;
     }
 
+    bool GetDatasBetween(std::vector<IMUData>& datas, const double& start, const double& end) {
+        std::unique_lock<std::mutex> lock(imu_datas_mtx_);
+        if (imu_datas_.back().time_ < end || imu_datas_.front().time_ > start)
+            return false;
+
+        auto begin_iter = upperBoundDeque(imu_datas_, start);
+        begin_iter--;
+        auto end_iter = upperBoundDeque(imu_datas_, end);
+        end_iter++;
+        datas = std::vector<IMUData>(begin_iter, end_iter);
+    }
 private:
     std::mutex imu_datas_mtx_, wheel_datas_mtx_, wheel_imu_datas_mtx_, gps_datas_mtx_, camera_data_mtx_, feature_data_mtx_;
     std::deque<IMUData> imu_datas_;

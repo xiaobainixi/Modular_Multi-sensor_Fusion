@@ -339,4 +339,7 @@ public:
     // dataloader
     double play_speed_ = 6.0;
     std::string data_path_ = "../data/";
+
+
+    double g_ = 9.81;
 };

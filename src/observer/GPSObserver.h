@@ -8,13 +8,14 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
     GPSObserver(const std::shared_ptr<Parameter> &param_ptr, const std::shared_ptr<DataManager> &data_manager_ptr,
-                const std::shared_ptr<StateManager> &state_manager_ptr, std::shared_ptr<Viewer> viewer_ptr = nullptr)
-                
+        const std::shared_ptr<CooTrans> &coo_trans_ptr,
+        const std::shared_ptr<StateManager> &state_manager_ptr, std::shared_ptr<Viewer> viewer_ptr = nullptr)
     {
         viewer_ptr_ = viewer_ptr;
         param_ptr_ = param_ptr;
         data_manager_ptr_ = data_manager_ptr;
         state_manager_ptr_ = state_manager_ptr;
+        coo_trans_ptr_ = coo_trans_ptr;
 
         R_ = Eigen::MatrixXd::Zero(3, 3);
         R_(0, 0) = param_ptr->gps_x_noise_ * param_ptr->gps_x_noise_;

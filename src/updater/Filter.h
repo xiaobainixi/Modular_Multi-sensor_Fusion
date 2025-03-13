@@ -33,11 +33,12 @@ public:
             return;
         }
 
+        coo_trans_ptr_ = std::make_shared<CooTrans>();
         if (param_ptr->gps_wheel_align_)
-            gps_wheel_observer_ptr_ = std::make_shared<GPSWheelObserver>(param_ptr, data_manager_ptr, state_manager_ptr, viewer_ptr_);
+            gps_wheel_observer_ptr_ = std::make_shared<GPSWheelObserver>(param_ptr, data_manager_ptr, coo_trans_ptr_, state_manager_ptr, viewer_ptr_);
         else {
             if (param_ptr->use_gps_)
-                gps_observer_ptr_ = std::make_shared<GPSObserver>(param_ptr, data_manager_ptr, state_manager_ptr, viewer_ptr_);
+                gps_observer_ptr_ = std::make_shared<GPSObserver>(param_ptr, data_manager_ptr, coo_trans_ptr_, state_manager_ptr, viewer_ptr_);
             
             if (param_ptr->wheel_use_type_ == 2)
                 wheel_observer_ptr_ = std::make_shared<WheelObserver>(param_ptr, data_manager_ptr, state_manager_ptr, viewer_ptr_);
@@ -48,6 +49,8 @@ public:
             camera_observer_ptr_ = std::make_shared<CameraObserver>(param_ptr, data_manager_ptr, state_manager_ptr, viewer_ptr_);
         }
 
+
+        initializers_ptr_ = std::make_shared<Initializers>(param_ptr, data_manager_ptr, coo_trans_ptr_, state_manager_ptr);
         run_thread_ptr_ = std::make_shared<std::thread>(&Filter::Run, this);
     }
 
@@ -66,6 +69,7 @@ private:
     std::shared_ptr<DataManager> data_manager_ptr_;
     std::shared_ptr<StateManager> state_manager_ptr_;
 
+    std::shared_ptr<CooTrans> coo_trans_ptr_;
     // todo add
     std::shared_ptr<GPSObserver> gps_observer_ptr_;
     std::shared_ptr<WheelObserver> wheel_observer_ptr_;

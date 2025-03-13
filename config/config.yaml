@@ -66,4 +66,4 @@ tbc: !!opencv-matrix
 # data
 play_speed: 1.0
 # data_path: /home/l/slam/data
-data_path: /home/l/slam/data
+data_path: /home/l/code/open_source_slam/Modular_Multi-sensor_Fusion/data/

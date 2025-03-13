@@ -118,7 +118,7 @@ struct Feature
     // state_id(key)-image_coordinates(value) manner.
     // 升序排序的map
     std::map<int, Eigen::Vector2d, std::less<int>,
-             Eigen::aligned_allocator<std::pair<const int, Eigen::Vector4d>>>
+             Eigen::aligned_allocator<std::pair<const int, Eigen::Vector2d>>>
         observations;
 
     // 3d postion of the feature in the world frame.

@@ -145,6 +145,10 @@ public:
         return states_;
     }
 
+    inline bool Empty() {
+        std::unique_lock<std::mutex> lock(states_mtx_);
+        return states_.empty();
+    }
     // todo getbetween 差值等
 
     std::map<int, std::shared_ptr<CamState>, std::less<int>, 

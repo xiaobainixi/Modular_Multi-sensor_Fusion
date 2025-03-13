@@ -57,6 +57,15 @@ public:
         y = t[1];
         z = t[2];
     }
+
+    Eigen::Vector3d getENH(double lat, double lon, double h)
+    {
+        double N_ = a / sqrt(1 - e2 * sin(lat) * sin(lat));
+        Eigen::Vector3d t((N_ + h) * cos(lat) * cos(lon), (N_ + h) * cos(lat) * sin(lon), (N_ * (1 - e2) + h) * sin(lat));
+        t = r * (t - ecef_Ow);
+        return t;
+    }
+
     // 输入为一个东北高坐标，返回其经纬高
     Eigen::Vector3d ECEF2LLA(Eigen::Vector3d t)
     {
@@ -90,8 +99,8 @@ public:
         return LLA;
     }
 private:
-    double iPI = 0.0174532925199433; // 3.1415926535898/180.0
-    double PI = 3.1415926535898;
+    // double iPI = 0.0174532925199433; // 3.1415926535898/180.0
+    // double PI = 3.1415926535898;
     // 54年北京坐标系参数
     // double a = 6378245.0;   // 长轴
     // double f = 1.0 / 298.3; // 扁率   (a-b)/a

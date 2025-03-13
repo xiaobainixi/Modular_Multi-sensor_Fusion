@@ -120,6 +120,12 @@ void Filter::Run() {
     // 循环读数据
     while (1)
     {
+        if (!initialized_) {
+            if (initializers_ptr_->IMUGNSSInitialization())
+                initialized_ = true;
+            else
+                continue;
+        }
         if (predictor_ptr_)
             predictor_ptr_->RunOnce();
         // 简易法

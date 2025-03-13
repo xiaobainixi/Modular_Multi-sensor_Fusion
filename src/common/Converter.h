@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Eigen/Geometry>
 #include <Eigen/Core>
 #include <Eigen/Sparse>
 #include <Eigen/SVD>
@@ -86,5 +87,11 @@ public:
         w_hat(2, 1) = w(0);
         w_hat(2, 2) = 0;
         return w_hat;
+    }
+
+    static Eigen::Matrix3d Euler2Matrix(const Eigen::Vector3d &euler) {
+        return Eigen::Matrix3d(Eigen::AngleAxisd(euler[2], Eigen::Vector3d::UnitZ()) *
+                        Eigen::AngleAxisd(euler[1], Eigen::Vector3d::UnitY()) *
+                        Eigen::AngleAxisd(euler[0], Eigen::Vector3d::UnitX()));
     }
 };

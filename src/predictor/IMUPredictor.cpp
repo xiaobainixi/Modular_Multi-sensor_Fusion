@@ -18,17 +18,24 @@ void IMUPredictor::RunOnce() {
         
         // 第一个数据
         if (last_data_.time_ <= 0.0) {
-            std::shared_ptr<State> cur_state_ptr = std::make_shared<State>();
-            cur_state_ptr->time_ = cur_data.time_;
-            cur_state_ptr->C_ = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM);
-            cur_state_ptr->C_.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->POSI_INDEX) = Eigen::Matrix3d::Identity() * 0.25;
-            cur_state_ptr->C_.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->VEL_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.25;
-            cur_state_ptr->C_.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.25;
-            cur_state_ptr->C_.block<3, 3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
-            cur_state_ptr->C_.block<3, 3>(param_ptr_->ACC_BIAS_INDEX_STATE_, param_ptr_->ACC_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
-            state_manager_ptr_->PushState(cur_state_ptr);
-            last_data_ = cur_data;
-            return;
+            if (state_manager_ptr_->Empty()) {
+                std::shared_ptr<State> cur_state_ptr = std::make_shared<State>();
+                cur_state_ptr->time_ = cur_data.time_;
+                cur_state_ptr->C_ = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM);
+                cur_state_ptr->C_.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->POSI_INDEX) = Eigen::Matrix3d::Identity() * 0.25;
+                cur_state_ptr->C_.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->VEL_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.25;
+                cur_state_ptr->C_.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.25;
+                cur_state_ptr->C_.block<3, 3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
+                cur_state_ptr->C_.block<3, 3>(param_ptr_->ACC_BIAS_INDEX_STATE_, param_ptr_->ACC_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
+                state_manager_ptr_->PushState(cur_state_ptr);
+                last_data_ = cur_data;
+                return;
+            } else {
+                std::shared_ptr<State> last_state_ptr;
+                state_manager_ptr_->GetNearestState(last_state_ptr);
+                last_data_ = cur_data;
+                last_data_.time_ = last_state_ptr->time_;
+            }
         }
         double delta_t = cur_data.time_ - last_data_.time_;
         if (delta_t <= 0.0) {

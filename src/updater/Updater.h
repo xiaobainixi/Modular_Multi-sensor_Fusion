@@ -3,6 +3,7 @@
 
 #include "common/StateManager.h"
 #include "common/DataManager.h"
+#include "common/Initializers.h"
 
 #include "predictor/IMUPredictor.h"
 #include "predictor/WheelPredictor.h"
@@ -25,4 +26,7 @@ protected:
     std::shared_ptr<std::thread> run_thread_ptr_;
     std::shared_ptr<Viewer> viewer_ptr_;
     std::shared_ptr<Predictor> predictor_ptr_;
+    std::shared_ptr<Initializers> initializers_ptr_;
+    
+    bool initialized_ = false;
 };
