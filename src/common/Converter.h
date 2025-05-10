@@ -94,4 +94,46 @@ public:
                         Eigen::AngleAxisd(euler[1], Eigen::Vector3d::UnitY()) *
                         Eigen::AngleAxisd(euler[0], Eigen::Vector3d::UnitX()));
     }
+
+
+    // SO3 FUNCTIONS
+    static Eigen::Matrix3d InverseRightJacobianSO3(const Eigen::Vector3d &v)
+    {
+        return InverseRightJacobianSO3(v[0],v[1],v[2]);
+    }
+
+    static Eigen::Matrix3d InverseRightJacobianSO3(const double x, const double y, const double z)
+    {
+        const double d2 = x*x+y*y+z*z;
+        const double d = sqrt(d2);
+
+        Eigen::Matrix3d W;
+        W << 0.0, -z, y,z, 0.0, -x,-y,  x, 0.0;
+        if(d<1e-5)
+            return Eigen::Matrix3d::Identity();
+        else
+            return Eigen::Matrix3d::Identity() + W/2 + W*W*(1.0/d2 - (1.0+cos(d))/(2.0*d*sin(d)));
+    }
+
+    static Eigen::Matrix3d RightJacobianSO3(const Eigen::Vector3d &v)
+    {
+        return RightJacobianSO3(v[0],v[1],v[2]);
+    }
+
+    static Eigen::Matrix3d RightJacobianSO3(const double x, const double y, const double z)
+    {
+        const double d2 = x*x+y*y+z*z;
+        const double d = sqrt(d2);
+
+        Eigen::Matrix3d W;
+        W << 0.0, -z, y,z, 0.0, -x,-y,  x, 0.0;
+        if(d<1e-5)
+        {
+            return Eigen::Matrix3d::Identity();
+        }
+        else
+        {
+            return Eigen::Matrix3d::Identity() - W*(1.0-cos(d))/d2 + W*W*(d-sin(d))/(d2*d);
+        }
+    }
 };

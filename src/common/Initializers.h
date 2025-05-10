@@ -100,7 +100,8 @@ public:
 
     bool IMUGNSSInitialization() {
         GPSData cur_gnss_data;
-        data_manager_ptr_->GetLastGPSData(cur_gnss_data, last_gnss_data_.time_);
+        if (!data_manager_ptr_->GetLastGPSData(cur_gnss_data, last_gnss_data_.time_))
+            return false;
         if (last_gnss_data_.time_ < 0.0) {
             coo_trans_ptr_->SetECEFOw(cur_gnss_data.lat_, cur_gnss_data.lon_, cur_gnss_data.h_);
             last_gnss_data_ = cur_gnss_data;
@@ -110,42 +111,49 @@ public:
         // bool is_zero_velocity;
         // 分模式
         std::vector<IMUData> datas;
-        data_manager_ptr_->GetDatasBetween(datas, cur_gnss_data.time_, last_gnss_data_.time_);
-        if (datas.size() < 30) {
+        data_manager_ptr_->GetDatasBetween(datas, last_gnss_data_.time_, cur_gnss_data.time_);
+        if (datas.size() < 50) {
             return false;
         }
 
+        
         // 零速检测估计陀螺零偏和横滚俯仰角
         // Obtain the gyroscope biases and roll and pitch angles
         std::vector<double> average;
         Eigen::Vector3d bg{0, 0, 0};
         Eigen::Vector3d initatt{0, 0, 0};
-        bool is_has_zero_velocity = false;
-
-        // 从零速开始
         Eigen::Vector3d velocity = Eigen::Vector3d::Zero();
-        bool is_zero_velocity = DetectZeroVelocity(datas, average);
-        if (is_zero_velocity) {
-            // 陀螺零偏
-            bg = Eigen::Vector3d(average[0], average[1], average[2]);
+        bool is_has_zero_velocity = false;
+        bool is_zero_velocity = false;
 
-            // 重力调平获取横滚俯仰角
-            Eigen::Vector3d fb(average[3], average[4], average[5]);
+        if (param_ptr_->state_type_ != 1) {
+            // 从零速开始
+            is_zero_velocity = DetectZeroVelocity(datas, average);
+            if (is_zero_velocity) {
+                // 陀螺零偏
+                bg = Eigen::Vector3d(average[0], average[1], average[2]);
 
-            initatt[0] = -asin(fb[1] / param_ptr_->g_);
-            initatt[1] = asin(fb[0] / param_ptr_->g_);
+                // 重力调平获取横滚俯仰角
+                Eigen::Vector3d fb(average[3], average[4], average[5]);
 
-            LOG(INFO) << "Zero velocity get gyroscope bias " << bg.transpose() << ", roll " << initatt[0]
-                << ", pitch " << initatt[1];
-            is_has_zero_velocity = true;
+                initatt[0] = -asin(fb[1] / param_ptr_->g_);
+                initatt[1] = asin(fb[0] / param_ptr_->g_);
+
+                LOG(INFO) << "Zero velocity get gyroscope bias " << bg.transpose() << ", roll " << initatt[0]
+                    << ", pitch " << initatt[1];
+                is_has_zero_velocity = true;
+            }
         }
 
         // 非零速状态
         // Initialization conditions
         if (!is_zero_velocity) {
             Eigen::Vector3d vel = coo_trans_ptr_->getENH(cur_gnss_data.lat_, cur_gnss_data.lon_, cur_gnss_data.h_)
-                - coo_trans_ptr_->getENH(cur_gnss_data.lat_, cur_gnss_data.lon_, cur_gnss_data.h_);
+                - coo_trans_ptr_->getENH(last_gnss_data_.lat_, last_gnss_data_.lon_, last_gnss_data_.h_);
             if (vel.norm() < 0.5) {
+                LOG(INFO) << "速度太低 重新计算：" << vel.norm();
+                // 重置
+                last_gnss_data_.time_ = -1.0;
                 return false;
             }
             velocity = vel / (cur_gnss_data.time_ - last_gnss_data_.time_);
@@ -161,23 +169,31 @@ public:
             return false;
         }
 
-        
-
         // 初始状态, 没有加杆臂！！！！ Converter::Euler2Matrix(initatt) * antlever_
         // The initialization cur_state_ptr
         std::shared_ptr<State> cur_state_ptr = std::make_shared<State>();
         cur_state_ptr->time_ = cur_gnss_data.time_;
         cur_state_ptr->Rwb_ = Converter::Euler2Matrix(initatt);
         cur_state_ptr->twb_ = coo_trans_ptr_->getENH(cur_gnss_data.lat_, cur_gnss_data.lon_, cur_gnss_data.h_);
-        cur_state_ptr->bg_ = bg;
 
         cur_state_ptr->C_ = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM);
-        cur_state_ptr->C_.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->POSI_INDEX) = Eigen::Matrix3d::Identity() * 0.25;
-        cur_state_ptr->C_.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->VEL_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.25;
-        cur_state_ptr->C_.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.25;
-        cur_state_ptr->C_.block<3, 3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
-        cur_state_ptr->C_.block<3, 3>(param_ptr_->ACC_BIAS_INDEX_STATE_, param_ptr_->ACC_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
+        cur_state_ptr->C_.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->POSI_INDEX) = Eigen::Matrix3d::Identity() * 0.0025;
+        cur_state_ptr->C_.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.0025;
+        if (param_ptr_->state_type_ == 0) {
+            cur_state_ptr->bg_ = bg;
+            cur_state_ptr->Vw_ = velocity;
+            
+            cur_state_ptr->C_.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->VEL_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.0025;
+            cur_state_ptr->C_.block<3, 3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
+            cur_state_ptr->C_.block<3, 3>(param_ptr_->ACC_BIAS_INDEX_STATE_, param_ptr_->ACC_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
+        } else if (param_ptr_->state_type_ == 2) {
+            cur_state_ptr->bg_ = bg;
+
+            cur_state_ptr->C_.block<3, 3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
+        }
+        
         state_manager_ptr_->PushState(cur_state_ptr);
+        return true;
     }
 
     void IMUVisualInitialization() {

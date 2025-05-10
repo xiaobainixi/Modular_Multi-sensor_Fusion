@@ -214,8 +214,9 @@ public:
         auto begin_iter = upperBoundDeque(imu_datas_, start);
         begin_iter--;
         auto end_iter = upperBoundDeque(imu_datas_, end);
-        end_iter++;
+        // end_iter++;
         datas = std::vector<IMUData>(begin_iter, end_iter);
+        return true;
     }
 private:
     std::mutex imu_datas_mtx_, wheel_datas_mtx_, wheel_imu_datas_mtx_, gps_datas_mtx_, camera_data_mtx_, feature_data_mtx_;
