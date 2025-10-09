@@ -9,7 +9,7 @@
 #include "Parameter.h"
 #include "DataManager.h"
 #include "Converter.h"
-
+#include "preint/Preintegration.h"
 struct CamState
 {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -26,7 +26,7 @@ struct CamState
 
     // Orientation
     // Take a vector from the world frame to the camera frame.
-    Eigen::Matrix3d Rwc_ = Eigen::Matrix3d::Identity();
+    Eigen::Quaterniond Rwc_ = Eigen::Quaterniond::Identity();
 
     // Position of the camera frame in the world frame.
     Eigen::Vector3d twc_ = Eigen::Vector3d::Zero();
@@ -41,6 +41,7 @@ struct CamState
     Eigen::Vector3d twc_null_ = Eigen::Vector3d::Zero();
 };
 
+class Preintegration;
 class State {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -50,25 +51,45 @@ public:
     Eigen::MatrixXd C_;  // 协方差矩阵
     Eigen::Vector3d Vw_ = Eigen::Vector3d::Zero();
     Eigen::Vector3d twb_ = Eigen::Vector3d::Zero();
-    Eigen::Matrix3d Rwb_ = Eigen::Matrix3d::Identity();
+    Eigen::Quaterniond Rwb_ = Eigen::Quaterniond::Identity();
     Eigen::Vector3d ba_ = Eigen::Vector3d::Zero();
     Eigen::Vector3d bg_ = Eigen::Vector3d::Zero();
 
+    GNSSData cur_gnss_data_;
+    WheelData cur_wheel_data_;
+    FeatureData feature_data_;
+    std::shared_ptr<State> last_state_;
+    std::shared_ptr<Preintegration> preint_;
+
+    // 左乘
     void Update(std::shared_ptr<Parameter> param_ptr, const Eigen::VectorXd & X, const Eigen::MatrixXd & C_new, std::map<int, std::shared_ptr<CamState>, std::less<int>, 
         Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<CamState>>>> & cam_states) {
         if (param_ptr->state_type_ == 0) {
-            Rwb_ = Converter::ExpSO3(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
+            Rwb_ = Converter::so3ToQuat(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
             Vw_ += X.block<3, 1>(param_ptr->VEL_INDEX_STATE_, 0);
             twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);
             ba_ += X.block<3, 1>(param_ptr->ACC_BIAS_INDEX_STATE_, 0);
             bg_ += X.block<3, 1>(param_ptr->GYRO_BIAS_INDEX_STATE_, 0);
+            LOG(INFO) << "Update State (type 0):";
+            LOG(INFO) << "Rwb_: " << Rwb_.coeffs().transpose();
+            LOG(INFO) << "Vw_: " << Vw_.transpose();
+            LOG(INFO) << "twb_: " << twb_.transpose();
+            LOG(INFO) << "ba_: " << ba_.transpose();
+            LOG(INFO) << "bg_: " << bg_.transpose();
         } else if(param_ptr->state_type_ == 1) {
-            Rwb_ = Converter::ExpSO3(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
+            Rwb_ = Converter::so3ToQuat(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
             twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);
+            LOG(INFO) << "Update State (type 1):";
+            LOG(INFO) << "Rwb_: " << Rwb_.coeffs().transpose();
+            LOG(INFO) << "twb_: " << twb_.transpose();
         } else if (param_ptr->state_type_ == 2) {
-            Rwb_ = Converter::ExpSO3(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
+            Rwb_ = Converter::so3ToQuat(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
             twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);
             bg_ += X.block<3, 1>(param_ptr->GYRO_BIAS_INDEX_STATE_, 0);
+            LOG(INFO) << "Update State (type 2):";
+            LOG(INFO) << "Rwb_: " << Rwb_.coeffs().transpose();
+            LOG(INFO) << "twb_: " << twb_.transpose();
+            LOG(INFO) << "bg_: " << bg_.transpose();
         } else {
             LOG(ERROR) << "未知状态类型";
             exit(0);
@@ -81,8 +102,8 @@ public:
         for (int i = 0; i < cam_states.size(); ++i, ++cam_state_iter)
         {
             const Eigen::VectorXd &delta_x_cam = X.segment<6>(param_ptr->STATE_DIM + i * 6);
-            const Eigen::Matrix3d dq_cam = Converter::ExpSO3(delta_x_cam.head<3>());
-            cam_state_iter->second->Rwc_ =  dq_cam * cam_state_iter->second->Rwc_;
+            cam_state_iter->second->Rwc_ =
+                Converter::so3ToQuat(delta_x_cam.head<3>()) * cam_state_iter->second->Rwc_;
             cam_state_iter->second->twc_ += delta_x_cam.tail<3>();
         }
         C_ = C_new;
@@ -131,16 +152,31 @@ public:
             return false;
         states_.push_back(state);
 
-        // 只保留最近10s状态,二分查找下，从头找也行不差很多
+        // 优化模式下状态删除单独维护
+        if (param_ptr_->fusion_model_ == 1)
+            return true;
+        // 只保留最近5s状态,二分查找下，从头找也行不差很多
         std::shared_ptr<State> tar = std::make_shared<State>();
-        tar->time_ = state->time_ - 10.0;
+        tar->time_ = state->time_ - 5.0;
         auto iter = lower_bound(states_.begin(), states_.end(), tar, CompareTime());
         if (iter != states_.begin())
             states_ = std::vector<std::shared_ptr<State>>(iter, states_.end());
         return true;
     }
 
-    inline std::vector<std::shared_ptr<State>> GetState() {
+    inline bool PopFrontState() {
+        std::unique_lock<std::mutex> lock(states_mtx_);
+        if (states_.empty())
+            return false;
+        states_.erase(states_.begin());
+        if (!states_.empty()) {
+            states_[0]->last_state_ = nullptr;
+            states_[0]->preint_ = nullptr;
+        }
+        return true;
+    }
+
+    inline std::vector<std::shared_ptr<State>> GetAllStates() {
         std::unique_lock<std::mutex> lock(states_mtx_);
         return states_;
     }

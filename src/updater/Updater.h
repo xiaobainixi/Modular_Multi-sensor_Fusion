@@ -9,10 +9,10 @@
 #include "predictor/WheelPredictor.h"
 #include "predictor/WheelIMUPredictor.h"
 
-#include "observer/GPSObserver.h"
+#include "observer/GNSSObserver.h"
 #include "observer/WheelObserver.h"
 #include "observer/CameraObserver.h"
-#include "observer/GPSWheelObserver.h"
+#include "observer/GNSSWheelObserver.h"
 
 #include "visual/ImageProcessor.h"
 
@@ -29,4 +29,9 @@ protected:
     std::shared_ptr<Initializers> initializers_ptr_;
     
     bool initialized_ = false;
+
+    // tmp data
+    GNSSData last_gnss_data_;
+    WheelData last_wheel_data_;
+    FeatureData last_feature_data_;
 };

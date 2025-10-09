@@ -2,12 +2,12 @@
 
 #include "Observer.h"
 #include "common/CooTrans.h"
-class GPSWheelObserver : public Observer
+class GNSSWheelObserver : public Observer
 {
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    GPSWheelObserver(
+    GNSSWheelObserver(
         const std::shared_ptr<Parameter> &param_ptr, const std::shared_ptr<DataManager> &data_manager_ptr,
         const std::shared_ptr<CooTrans> &coo_trans_ptr,
         const std::shared_ptr<StateManager> &state_manager_ptr, std::shared_ptr<Viewer> viewer_ptr = nullptr)
@@ -20,16 +20,17 @@ public:
         coo_trans_ptr_ = coo_trans_ptr;
 
         R_ = Eigen::MatrixXd::Zero(6, 6);
-        R_(0, 0) = param_ptr->gps_x_noise_ * param_ptr->gps_x_noise_;
-        R_(1, 1) = param_ptr->gps_y_noise_ * param_ptr->gps_y_noise_;
-        R_(2, 2) = param_ptr->gps_z_noise_ * param_ptr->gps_z_noise_;
-        R_(3, 3) = param_ptr->wheel_x_noise_ * param_ptr->wheel_x_noise_;
-        R_(4, 4) = param_ptr->wheel_y_noise_ * param_ptr->wheel_y_noise_;
-        R_(5, 5) = param_ptr->wheel_z_noise_ * param_ptr->wheel_z_noise_;
+        R_(0, 0) = param_ptr->gnss_x_noise_ * param_ptr->gnss_x_noise_;
+        R_(1, 1) = param_ptr->gnss_y_noise_ * param_ptr->gnss_y_noise_;
+        R_(2, 2) = param_ptr->gnss_z_noise_ * param_ptr->gnss_z_noise_;
+        // wheel_vel_noise_ 代表100hz下的离散噪声标准差 当作为观测时表示那个时间点的噪声，需要放大
+        R_(3, 3) = param_ptr->wheel_vel_noise_ * param_ptr->wheel_vel_noise_ * 100.0 * 100.0;
+        R_(4, 4) = param_ptr->wheel_vel_noise_ * param_ptr->wheel_vel_noise_ * 100.0 * 100.0;  // 1e-8 * 1e-8;
+        R_(5, 5) = param_ptr->wheel_vel_noise_ * param_ptr->wheel_vel_noise_ * 100.0 * 100.0;  // 1e-8 * 1e-8;
     }
 
     bool ComputeHZR(
-        const WheelData & wheel_data, const GPSData & gps_data,
+        const WheelData & wheel_data, const GNSSData & gnss_data,
         const std::shared_ptr<State> & state_ptr, Eigen::MatrixXd & H,
         Eigen::MatrixXd & Z, Eigen::MatrixXd &R);
 

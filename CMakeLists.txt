@@ -30,28 +30,26 @@ MESSAGE("OPENCV VERSION:")
 MESSAGE(${OpenCV_VERSION})
 
 find_package(Eigen3 REQUIRED)
-
+find_package(Ceres REQUIRED)
 find_package(Pangolin REQUIRED)
 include_directories(${Pangolin_INCLUDE_DIRS})
-
-# find_package( Sophus REQUIRED )
 
 include_directories(
     /opt/local/include   #mac os
     ${PROJECT_SOURCE_DIR}/src
     ${PROJECT_SOURCE_DIR}
     ${EIGEN3_INCLUDE_DIR}
+    ${CERES_INCLUDE_DIRS}
     ${OpenCV_INCLUDE_DIR}
     ${SUITESPARSE_INCLUDE_DIRS}
-    # ${Sophus_INCLUDE_DIRS}
 )
 
 add_library(${PROJECT_NAME} SHARED
     src/observer/CameraObserver.cpp
-    src/observer/GPSObserver.cpp
+    src/observer/GNSSObserver.cpp
     src/observer/LidarObserver.cpp
     src/observer/WheelObserver.cpp
-    src/observer/GPSWheelObserver.cpp
+    src/observer/GNSSWheelObserver.cpp
 
     src/predictor/IMUPredictor.cpp
     src/predictor/WheelIMUPredictor.cpp
@@ -59,6 +57,7 @@ add_library(${PROJECT_NAME} SHARED
 
     src/visual/ImageProcessor.cpp
 
+    src/updater/Optimizer.cpp
     src/updater/Filter.cpp
 
     src/viewer/Viewer.cpp
@@ -71,10 +70,10 @@ add_library(${PROJECT_NAME} SHARED
 target_link_libraries(${PROJECT_NAME}
     ${OpenCV_LIBS}
     ${EIGEN3_LIBS}
+    ${CERES_LIBRARIES}
     ${Pangolin_LIBRARIES}
     ${GLOG_LIBRARIES}
     ${SUITESPARSE_LIBRARIES}
-    # ${Sophus_LIBRARIES}
 )
 
 add_executable(data_test app/data_test.cpp)

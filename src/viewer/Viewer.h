@@ -32,11 +32,11 @@ public:
         int max_traj_length = 100000;
         int max_num_features = 5000;
 
-        int max_gps_length = 10000;
-        double gps_point_size = 5.;
+        int max_gnss_length = 10000;
+        double gnss_point_size = 5.;
 
         bool show_raw_odom = true;
-        bool show_gps_points = true;
+        bool show_gnss_points = true;
     };
 
     Viewer(const Config &config);
@@ -90,7 +90,7 @@ private:
     std::deque<std::pair<Eigen::Matrix3d, Eigen::Vector3d>> gt_wheel_traj_;
     std::deque<std::pair<Eigen::Matrix3d, Eigen::Vector3d>> wheel_odom_traj_;
     std::deque<Eigen::Vector3d> features_;
-    std::deque<Eigen::Vector3d> gps_points_;
+    std::deque<Eigen::Vector3d> gnss_points_;
 
     cv::Mat image_;
 };

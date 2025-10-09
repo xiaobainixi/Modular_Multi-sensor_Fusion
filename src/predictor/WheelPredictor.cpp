@@ -64,7 +64,7 @@ void WheelPredictor::RunOnce() {
     // 世界坐标系的位置
     // cur_state_ptr->twb_ = last_state_ptr->twb_ + last_state_ptr->Rwb_ * velo_vec * delta_t;
     // 世界坐标系下的角度
-    cur_state_ptr->Rwb_ = last_state_ptr->Rwb_ * Converter::ExpSO3(omega_vec * delta_t);
+    cur_state_ptr->Rwb_ = last_state_ptr->Rwb_ * Converter::so3ToQuat(omega_vec * delta_t);
 
 
     //---------------------------------------------------------------------------------------------------
@@ -85,7 +85,8 @@ void WheelPredictor::RunOnce() {
     // 这里先试用位移和旋转作为状态，不考虑使用速度（v, t, R, ba, bg，一共15维的状态）
     Eigen::MatrixXd F = Eigen::MatrixXd::Zero(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM);
     // 雅可比矩阵：
-    F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->ORI_INDEX_STATE_) = -Converter::Skew(last_state_ptr->Rwb_ * velo_vec);
+    F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->ORI_INDEX_STATE_) =
+        -Converter::Skew(last_state_ptr->Rwb_ * velo_vec);
 
     // 使用速度进行求导，错误
     // F.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) = -Converter::Skew(last_state_ptr->Rwb_ * velo_vec);
@@ -94,24 +95,25 @@ void WheelPredictor::RunOnce() {
     // note: 噪声直接累加
     // 增加位移和旋转的噪声，其中，旋转的噪声是Identity，位移的噪声是旋转*Identity
     Eigen::MatrixXd G = Eigen::MatrixXd::Zero(param_ptr_->STATE_DIM, 6);
-    G.block<3, 3>(param_ptr_->POSI_INDEX, 0) = last_state_ptr->Rwb_ * delta_t;
-    G.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, 3) = last_state_ptr->Rwb_ * delta_t;
+    G.block<3, 3>(param_ptr_->POSI_INDEX, 0) = last_state_ptr->Rwb_.toRotationMatrix() * delta_t;
+    G.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, 3) =
+        cur_state_ptr->Rwb_ * Converter::RightJacobianSO3(omega_vec * delta_t) * delta_t;
 
-    double w_noise = param_ptr_->wheel_vel_noise_ / param_ptr_->wheel_b_;
-    Eigen::Matrix<double, 6, 6> odom_dispersed_noise_cov = Eigen::Matrix<double, 6, 6>::Zero();
-    odom_dispersed_noise_cov(0, 0) = param_ptr_->wheel_vel_noise_ * param_ptr_->wheel_vel_noise_;  
-    odom_dispersed_noise_cov(1, 1) = 0.0; // 这几维不作观测，所以不需要噪声
-    odom_dispersed_noise_cov(2, 2) = 0.0;
-    odom_dispersed_noise_cov(3, 3) = 0.0;
-    odom_dispersed_noise_cov(4, 4) = 0.0;
-    odom_dispersed_noise_cov(5, 5) = w_noise * w_noise;
+    // double w_noise = param_ptr_->wheel_vel_noise_ / param_ptr_->wheel_b_;
+    // Eigen::Matrix<double, 6, 6> odom_dispersed_noise_cov = Eigen::Matrix<double, 6, 6>::Zero();
+    // odom_dispersed_noise_cov(0, 0) = param_ptr_->wheel_vel_noise_ * param_ptr_->wheel_vel_noise_;  
+    // odom_dispersed_noise_cov(1, 1) = 0.0; // 这几维不作观测，所以不需要噪声
+    // odom_dispersed_noise_cov(2, 2) = 0.0;
+    // odom_dispersed_noise_cov(3, 3) = 0.0;
+    // odom_dispersed_noise_cov(4, 4) = 0.0;
+    // odom_dispersed_noise_cov(5, 5) = w_noise * w_noise;
 
     Eigen::MatrixXd Phi = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) + F * delta_t;
 
     cur_state_ptr->C_ = last_state_ptr->C_;
     cur_state_ptr->C_.block(0, 0, param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) =
         Phi * last_state_ptr->C_.block(0, 0, param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) * Phi.transpose() +
-        G * odom_dispersed_noise_cov * G.transpose();
+        G * param_ptr_->predict_dispersed_noise_cov_ * G.transpose();
     // cur_state_ptr->C_ = Phi * last_state_ptr->C_ * Phi.transpose() + G * odom_dispersed_noise_cov * G.transpose();
 
     if (state_manager_ptr_->cam_states_.size() > 0)
@@ -137,5 +139,5 @@ void WheelPredictor::RunOnce() {
     // if (viewer_ptr_)
     //     viewer_ptr_->DrawWheelOdom(cur_state_ptr->Rwb_, cur_state_ptr->twb_);
     if (viewer_ptr_)
-        viewer_ptr_->DrawWheelPose(cur_state_ptr->Rwb_, cur_state_ptr->twb_);
+        viewer_ptr_->DrawWheelPose(cur_state_ptr->Rwb_.toRotationMatrix(), cur_state_ptr->twb_);
 }

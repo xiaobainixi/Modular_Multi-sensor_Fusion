@@ -152,7 +152,7 @@ bool Feature::checkMotion(
     Eigen::Isometry3d first_cam_pose;
     // Rwc
     first_cam_pose.linear() =
-        cam_states.find(first_cam_id)->second->Rwc_;
+        cam_states.find(first_cam_id)->second->Rwc_.toRotationMatrix();
 
     // twc
     first_cam_pose.translation() =
@@ -161,7 +161,7 @@ bool Feature::checkMotion(
     Eigen::Isometry3d last_cam_pose;
     // Rwc
     last_cam_pose.linear() =
-        cam_states.find(last_cam_id)->second->Rwc_;
+        cam_states.find(last_cam_id)->second->Rwc_.toRotationMatrix();
     // twc
     last_cam_pose.translation() =
         cam_states.find(last_cam_id)->second->twc_;
@@ -239,7 +239,7 @@ bool Feature::initializePosition(
         // Twc
         Eigen::Isometry3d cam0_pose;
         cam0_pose.linear() =
-            cam_state_iter->second->Rwc_;
+            cam_state_iter->second->Rwc_.toRotationMatrix();
         cam0_pose.translation() = cam_state_iter->second->twc_;
 
         // Eigen::Isometry3d cam1_pose;

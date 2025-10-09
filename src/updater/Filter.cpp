@@ -12,11 +12,11 @@ void Filter::ESKFUpdate(
     X = K * Z;
 }
 
-void Filter::UpdateFromGPS(const std::shared_ptr<State> & state_ptr) {
-    if (!gps_observer_ptr_)
+void Filter::UpdateFromGNSS(const std::shared_ptr<State> & state_ptr) {
+    if (!gnss_observer_ptr_)
         return;
-    GPSData cur_gps_data;
-    if (!data_manager_ptr_->GetLastGPSData(cur_gps_data, last_gps_data_.time_) || std::abs(state_ptr->time_ - cur_gps_data.time_) > 0.01)
+    GNSSData cur_gnss_data;
+    if (!data_manager_ptr_->GetLastGNSSData(cur_gnss_data, last_gnss_data_.time_) || std::abs(state_ptr->time_ - cur_gnss_data.time_) > 0.01)
         return;
 
     Eigen::VectorXd X;
@@ -26,12 +26,12 @@ void Filter::UpdateFromGPS(const std::shared_ptr<State> & state_ptr) {
     Eigen::MatrixXd R;
     Eigen::MatrixXd C_new;
     // 1. 计算ESKF需要的数据
-    gps_observer_ptr_->ComputeHZR(cur_gps_data, state_ptr, H, Z, R);
+    gnss_observer_ptr_->ComputeHZR(cur_gnss_data, state_ptr, H, Z, R);
     // 2. 计算更新量
     ESKFUpdate(H, state_ptr->C_, R, Z, C_new, X);
     // 3. 更新
     state_ptr->Update(param_ptr_, X, C_new, state_manager_ptr_->cam_states_);
-    last_gps_data_.time_ = cur_gps_data.time_;
+    last_gnss_data_.time_ = cur_gnss_data.time_;
 }
 
 void Filter::UpdateFromWheel(const std::shared_ptr<State> & state_ptr) {
@@ -57,17 +57,17 @@ void Filter::UpdateFromWheel(const std::shared_ptr<State> & state_ptr) {
     last_wheel_data_.time_ = cur_wheel_data.time_;
 }
 
-void Filter::UpdateFromGPSWheel(const std::shared_ptr<State> & state_ptr) {
-    if (!gps_wheel_observer_ptr_)
+void Filter::UpdateFromGNSSWheel(const std::shared_ptr<State> & state_ptr) {
+    if (!gnss_wheel_observer_ptr_)
         return;
-    GPSData cur_gps_data;
-    if (!data_manager_ptr_->GetLastGPSData(cur_gps_data, last_gps_data_.time_) || std::abs(state_ptr->time_ - cur_gps_data.time_) > 0.01)
+    GNSSData cur_gnss_data;
+    if (!data_manager_ptr_->GetLastGNSSData(cur_gnss_data, last_gnss_data_.time_) || std::abs(state_ptr->time_ - cur_gnss_data.time_) > 0.01)
         return;
     WheelData cur_wheel_data;
     if (!data_manager_ptr_->GetLastWheelData(cur_wheel_data, last_wheel_data_.time_) || std::abs(state_ptr->time_ - cur_wheel_data.time_) > 0.01)
         return;
 
-    // LOG(INFO) << "UpdateFromGPSWheel";
+    // LOG(INFO) << "UpdateFromGNSSWheel";
     Eigen::VectorXd X;
     Eigen::MatrixXd K;
     Eigen::MatrixXd H;
@@ -75,12 +75,12 @@ void Filter::UpdateFromGPSWheel(const std::shared_ptr<State> & state_ptr) {
     Eigen::MatrixXd R;
     Eigen::MatrixXd C_new;
     // 1. 计算ESKF需要的数据
-    gps_wheel_observer_ptr_->ComputeHZR(cur_wheel_data, cur_gps_data, state_ptr, H, Z, R);
+    gnss_wheel_observer_ptr_->ComputeHZR(cur_wheel_data, cur_gnss_data, state_ptr, H, Z, R);
     // 2. 计算更新量
     ESKFUpdate(H, state_ptr->C_, R, Z, C_new, X);
     // 3. 更新
     state_ptr->Update(param_ptr_, X, C_new, state_manager_ptr_->cam_states_);
-    last_gps_data_.time_ = cur_gps_data.time_;
+    last_gnss_data_.time_ = cur_gnss_data.time_;
     last_wheel_data_.time_ = cur_wheel_data.time_;
 }
 
@@ -121,7 +121,7 @@ void Filter::Run() {
     while (1)
     {
         if (!initialized_) {
-            if (initializers_ptr_->IMUGNSSInitialization())
+            if (initializers_ptr_->Initialization())
                 initialized_ = true;
             else
                 continue;
@@ -135,11 +135,11 @@ void Filter::Run() {
             continue;
         }
 
-        if (param_ptr_->gps_wheel_align_)
-            UpdateFromGPSWheel(state_ptr);
+        if (param_ptr_->gnss_wheel_align_)
+            UpdateFromGNSSWheel(state_ptr);
         else {
             UpdateFromWheel(state_ptr);
-            UpdateFromGPS(state_ptr);
+            UpdateFromGNSS(state_ptr);
         }
         if (param_ptr_->use_camera_)
             UpdateFromCamera(state_ptr);

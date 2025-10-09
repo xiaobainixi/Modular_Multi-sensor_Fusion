@@ -38,8 +38,8 @@ bool CameraObserver::ComputeHZR(
     // Rwc = Rwb_new * Rnew_old * Rbc   twc = twb_new + Rwb_new * tnew_old + Rwb_new * Rnew_old * tbc
     // twc = twb_new + Rwb_new * (tnew_old + Rnew_old * tbc)
     // 其中 Rnew_old = Rwb_new.t() * Rwb_old    tnew_old = Rwb_new.t() * (twb_old - twb_new) 这俩暂时认为是固定值
-    Eigen::Matrix3d Rnew_old = state_ptr->Rwb_.transpose() * feature_data.Rwb_;
-    Eigen::Vector3d tnew_old = state_ptr->Rwb_.transpose() * (feature_data.twb_ - state_ptr->twb_);
+    Eigen::Matrix3d Rnew_old = state_ptr->Rwb_.toRotationMatrix().transpose() * feature_data.Rwb_;
+    Eigen::Vector3d tnew_old = state_ptr->Rwb_.toRotationMatrix().transpose() * (feature_data.twb_ - state_ptr->twb_);
     Eigen::MatrixXd J = Eigen::MatrixXd::Zero(6, param_ptr_->STATE_DIM);
     // Rwc对Rwb_new的左扰动导数
     J.block<3, 3>(0, param_ptr_->ORI_INDEX_STATE_) = Eigen::Matrix3d::Identity();
@@ -51,7 +51,7 @@ bool CameraObserver::ComputeHZR(
     //     = twb_new + (I + φ^) * Rwb_new * (tnew_old + Rnew_old * tbc)
     //     = twb_new + Rwb_new * (tnew_old + Rnew_old * tbc) + φ^ * Rwb_new * (tnew_old + Rnew_old * tbc)
     //     = twi + Rwi * tic - (Rwb_new * (tnew_old + Rnew_old * tbc))^ * φ
-    J.block<3, 3>(3, param_ptr_->ORI_INDEX_STATE_) = -Converter::SkewSymmetric(state_ptr->Rwb_ * (tnew_old + Rnew_old * param_ptr_->tbc_));
+    J.block<3, 3>(3, param_ptr_->ORI_INDEX_STATE_) = -Converter::Skew(state_ptr->Rwb_ * (tnew_old + Rnew_old * param_ptr_->tbc_));
 
     // twc对twb_new的左扰动导数
     J.block<3, 3>(3, param_ptr_->POSI_INDEX) = Eigen::Matrix3d::Identity();
@@ -285,7 +285,7 @@ bool CameraObserver::ComputeHZR(
         // 2. 关键状态的位姿
         const Eigen::Vector3d key_position =
             key_cam_state_iter->second->twc_;
-        const Eigen::Matrix3d key_rotation = key_cam_state_iter->second->Rwc_;
+        const Eigen::Matrix3d key_rotation = key_cam_state_iter->second->Rwc_.toRotationMatrix();
 
         // Mark the camera states to be removed based on the
         // motion between states.
@@ -296,7 +296,7 @@ bool CameraObserver::ComputeHZR(
             // 从倒数第三个开始
             const Eigen::Vector3d position =
                 cam_state_iter->second->twc_;
-            const Eigen::Matrix3d rotation = cam_state_iter->second->Rwc_;
+            const Eigen::Matrix3d rotation = cam_state_iter->second->Rwc_.toRotationMatrix();
 
             // 计算相对于关键相机状态的平移与旋转
             double distance = (position - key_position).norm();
@@ -496,7 +496,7 @@ bool CameraObserver::ComputeHZR(
     if (viewer_ptr_) {
         std::vector<std::pair<Eigen::Matrix3d, Eigen::Vector3d>> cameras;
         for (auto [id, cam_state] : state_manager_ptr_->cam_states_) {
-            cameras.push_back(std::make_pair(cam_state->Rwc_, cam_state->twc_));
+            cameras.push_back(std::make_pair(cam_state->Rwc_.toRotationMatrix(), cam_state->twc_));
         }
         viewer_ptr_->DrawCameras(cameras);
     }

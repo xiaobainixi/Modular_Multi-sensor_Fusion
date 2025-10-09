@@ -254,12 +254,12 @@ private:
 
         // 左相机坐标系下的三维点相对于左相机位姿的雅可比 先r后t
         Eigen::Matrix<double, 3, 6> dpc0_dxc = Eigen::Matrix<double, 3, 6>::Zero();
-        dpc0_dxc.leftCols(3) = Converter::SkewSymmetric(p_c0);
-        dpc0_dxc.rightCols(3) = -cam_state->Rwc_;
+        dpc0_dxc.leftCols(3) = Converter::Skew(p_c0);
+        dpc0_dxc.rightCols(3) = -cam_state->Rwc_.toRotationMatrix();
 
         // Vector3d p_c0 = cam_state->Rwc_ * (p_w - cam_state->twc_);
         // p_c0 对 p_w
-        Eigen::Matrix3d dpc0_dpg = cam_state->Rwc_;
+        Eigen::Matrix3d dpc0_dpg = cam_state->Rwc_.toRotationMatrix();
 
         // 两个雅可比
         H_x = dz_dpc0 * dpc0_dxc;
@@ -273,7 +273,7 @@ private:
         u.block<3, 1>(0, 0) = 
             cam_state->Rwc_null_ * param_ptr_->gw_;
         u.block<3, 1>(3, 0) =
-            Converter::SkewSymmetric(p_w - cam_state->twc_null_) * param_ptr_->gw_;
+            Converter::Skew(p_w - cam_state->twc_null_) * param_ptr_->gw_;
         H_x = A - A * u * (u.transpose() * u).inverse() * u.transpose();
         H_f = -H_x.block<2, 3>(0, 3);
 

@@ -7,6 +7,7 @@
 
 #include <glog/logging.h>
 #include <Eigen/Core>
+#include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/eigen.hpp>
 
@@ -76,19 +77,19 @@ public:
         LOG(INFO) << "wheel_use_type: " << wheel_use_type_;
 
         // 观测
-        node = f_settings["use_gps"];
+        node = f_settings["use_gnss"];
         if (!node.empty() && node.isInt())
-            use_gps_ = int(node.real()) == 1;
-        LOG(INFO) << "use_gps: " << use_gps_;
+            use_gnss_ = int(node.real()) == 1;
+        LOG(INFO) << "use_gnss: " << use_gnss_;
 
-        node = f_settings["gps_wheel_align"];
+        node = f_settings["gnss_wheel_align"];
         if (!node.empty() && node.isInt())
-            gps_wheel_align_ = int(node.real()) == 1;
-        if (wheel_use_type_ != 2 || !use_gps_) {
-            gps_wheel_align_ = false;
-            LOG(INFO) << "不使用轮速或gps作为观测, gps与轮速不会对齐使用, 如果想对齐观测, 请同时打开gps与wheel观测";
+            gnss_wheel_align_ = int(node.real()) == 1;
+        if (wheel_use_type_ != 2 || !use_gnss_) {
+            gnss_wheel_align_ = false;
+            LOG(INFO) << "不使用轮速或gnss作为观测, gnss与轮速不会对齐使用, 如果想对齐观测, 请同时打开gnss与wheel观测";
         }
-        LOG(INFO) << "gps_wheel_align: " << gps_wheel_align_;
+        LOG(INFO) << "gnss_wheel_align: " << gnss_wheel_align_;
 
         
 
@@ -117,20 +118,20 @@ public:
             acc_bias_noise_ = node.real();
         LOG(INFO) << "acc_bias_noise: " << acc_bias_noise_;
 
-        node = f_settings["gps_x_noise"];
+        node = f_settings["gnss_x_noise"];
         if (!node.empty() && node.isReal())
-            gps_x_noise_ = node.real();
-        LOG(INFO) << "gps_x_noise: " << gps_x_noise_;
+            gnss_x_noise_ = node.real();
+        LOG(INFO) << "gnss_x_noise: " << gnss_x_noise_;
 
-        node = f_settings["gps_y_noise"];
+        node = f_settings["gnss_y_noise"];
         if (!node.empty() && node.isReal())
-            gps_y_noise_ = node.real();
-        LOG(INFO) << "gps_y_noise: " << gps_y_noise_;
+            gnss_y_noise_ = node.real();
+        LOG(INFO) << "gnss_y_noise: " << gnss_y_noise_;
 
-        node = f_settings["gps_z_noise"];
+        node = f_settings["gnss_z_noise"];
         if (!node.empty() && node.isReal())
-            gps_z_noise_ = node.real();
-        LOG(INFO) << "gps_z_noise: " << gps_z_noise_;
+            gnss_z_noise_ = node.real();
+        LOG(INFO) << "gnss_z_noise: " << gnss_z_noise_;
 
         node = f_settings["wheel_kl"];
         if (!node.empty() && node.isReal())
@@ -151,26 +152,6 @@ public:
         if (!node.empty() && node.isReal())
             wheel_vel_noise_ = node.real();
         LOG(INFO) << "wheel_vel_noise: " << wheel_vel_noise_;
-
-        node = f_settings["encoder_resolution"];
-        if (!node.empty() && node.isReal())
-            encoder_resolution_ = node.real();
-        LOG(INFO) << "encoder_resolution: " << encoder_resolution_;
-
-        node = f_settings["wheel_x_noise"];
-        if (!node.empty() && node.isReal())
-            wheel_x_noise_ = node.real();
-        LOG(INFO) << "wheel_x_noise: " << wheel_x_noise_;
-
-        node = f_settings["wheel_y_noise"];
-        if (!node.empty() && node.isReal())
-            wheel_y_noise_ = node.real();
-        LOG(INFO) << "wheel_y_noise: " << wheel_y_noise_;
-
-        node = f_settings["wheel_z_noise"];
-        if (!node.empty() && node.isReal())
-            wheel_z_noise_ = node.real();
-        LOG(INFO) << "wheel_z_noise: " << wheel_z_noise_;
 
         node = f_settings["fix_yz_in_eskf"];
         if (!node.empty() && node.isInt())
@@ -203,6 +184,7 @@ public:
             predict_dispersed_noise_cov_ =
                 Eigen::Matrix<double, 6, 6>::Zero();
             predict_dispersed_noise_cov_(0, 0) = wheel_vel_noise_ * wheel_vel_noise_;
+            // 考虑wheel_b_ 误差?
             predict_dispersed_noise_cov_(5, 5) = w_noise * w_noise;
         }
         else if (use_imu_ && wheel_use_type_ == 1)
@@ -287,8 +269,8 @@ public:
     bool use_imu_ = true;
     // 0 unused 1 predict 2 obs
     int wheel_use_type_ = 0;
-    bool gps_wheel_align_ = false;
-    bool use_gps_ = false;
+    bool gnss_wheel_align_ = false;
+    bool use_gnss_ = false;
     bool use_camera_ = false;
 
     // 不同模式状态不同，默认是纯IMU做预测
@@ -305,12 +287,11 @@ public:
     double gyro_bias_noise_ = 2.6e-04;
     double acc_noise_ = 2.6e-02;
     double acc_bias_noise_ = 2.6e-03;
-    Eigen::Vector3d gw_ = Eigen::Vector3d(0.0, 0.0, -9.81);
 
-    // gps
-    double gps_x_noise_ = 0.001;
-    double gps_y_noise_ = 0.001;
-    double gps_z_noise_ = 0.001;
+    // gnss
+    double gnss_x_noise_ = 0.001;
+    double gnss_y_noise_ = 0.001;
+    double gnss_z_noise_ = 0.001;
     Eigen::MatrixXd predict_dispersed_noise_cov_;
 
     // wheel
@@ -319,11 +300,6 @@ public:
     double wheel_kr_ = 0.00047768621928995;
     double wheel_b_ = 1.52439;
     double wheel_vel_noise_ = 0.2;  // wheel的速度噪声
-    // note: old param for wheel
-    double encoder_resolution_ = 0.00047820240382508;
-    double wheel_x_noise_ = 0.001;
-    double wheel_y_noise_ = 0.001;
-    double wheel_z_noise_ = 0.001;
     bool fix_yz_in_eskf_ = false;
 
     // Camera
@@ -342,4 +318,5 @@ public:
 
 
     double g_ = 9.81;
+    Eigen::Vector3d gw_ = Eigen::Vector3d(0.0, 0.0, -g_);
 };

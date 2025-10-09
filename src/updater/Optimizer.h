@@ -1,10 +1,22 @@
 #pragma once
 #include "Updater.h"
 
-class Filter : public Updater
+#include "marginalization/marginalization_factor.h"
+#include "marginalization/marginalization_info.h"
+#include "marginalization/residual_block_info.h"
+
+class QLocalParameterization : public ceres::LocalParameterization
+{
+    virtual bool Plus(const double *x, const double *delta, double *x_plus_delta) const;
+    virtual bool ComputeJacobian(const double *x, double *jacobian) const;
+    virtual int GlobalSize() const { return 4; };
+    virtual int LocalSize() const { return 3; };
+};
+
+class Optimizer : public Updater
 {
 public:
-    Filter(const std::shared_ptr<Parameter> &param_ptr, const std::shared_ptr<DataManager> &data_manager_ptr,
+    Optimizer(const std::shared_ptr<Parameter> &param_ptr, const std::shared_ptr<DataManager> &data_manager_ptr,
            const std::shared_ptr<StateManager> &state_manager_ptr, std::shared_ptr<Viewer> viewer_ptr = nullptr)
     {
         viewer_ptr_ = viewer_ptr;
@@ -13,12 +25,15 @@ public:
         state_manager_ptr_ = state_manager_ptr;
 
         if (param_ptr_->use_imu_ && param_ptr_->wheel_use_type_ != 1) {
+            preintegration_type_ = 0;
             predictor_ptr_ = std::make_shared<IMUPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
         } else if (param_ptr_->use_imu_ && param_ptr_->wheel_use_type_ == 1) {
             // todo imu+wheel
+            preintegration_type_ = 2;
             predictor_ptr_ = std::make_shared<WheelIMUPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
         } else if (!param_ptr_->use_imu_ && param_ptr_->wheel_use_type_ == 1) {
             // todo wheel
+            preintegration_type_ = 1;
             predictor_ptr_ = std::make_shared<WheelPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
         }
 
@@ -45,23 +60,19 @@ public:
 
 
         initializers_ptr_ = std::make_shared<Initializers>(param_ptr, data_manager_ptr, coo_trans_ptr_, state_manager_ptr);
-        run_thread_ptr_ = std::make_shared<std::thread>(&Filter::Run, this);
+        run_thread_ptr_ = std::make_shared<std::thread>(&Optimizer::Run, this);
     }
 
     
 private:
+    int preintegration_type_; // 0 imu, 1 wheel, 2 imu+wheel
     void Run();
-    void DelayedRun();
-    void UpdateFromGNSS(const std::shared_ptr<State> & state_ptr);
-    void UpdateFromWheel(const std::shared_ptr<State> & state_ptr);
-    void UpdateFromGNSSWheel(const std::shared_ptr<State> & state_ptr);
-    void UpdateFromCamera(const std::shared_ptr<State> & state_ptr);
-    void ESKFUpdate(
-        const Eigen::MatrixXd & H, const Eigen::MatrixXd & C, const Eigen::MatrixXd & R,
-        Eigen::MatrixXd & Z, Eigen::MatrixXd & C_new, Eigen::VectorXd & X);
+    void SlideWindow();
+    void Optimization();
     std::shared_ptr<Parameter> param_ptr_;
     std::shared_ptr<DataManager> data_manager_ptr_;
     std::shared_ptr<StateManager> state_manager_ptr_;
+    std::shared_ptr<Preintegration> preintegration_ptr_;
 
     std::shared_ptr<CooTrans> coo_trans_ptr_;
     // todo add
@@ -71,4 +82,13 @@ private:
     std::shared_ptr<ImageProcessor> image_processor_ptr_;
     std::shared_ptr<CameraObserver> camera_observer_ptr_;
 
+    // 边缘化
+    // Marginalization variables
+    std::shared_ptr<MarginalizationInfo> last_marginalization_info_{nullptr};
+    std::vector<double *> last_marginalization_parameter_blocks_;
+
+    // tmp data
+    GNSSData last_gnss_data_;
+    WheelData last_wheel_data_;
+    FeatureData last_feature_data_;
 };

@@ -79,10 +79,10 @@ void Viewer::DrawColorImage(const cv::Mat &image)
 void Viewer::DrawGps(const Eigen::Vector3d &G_p_Gps)
 {
     std::lock_guard<std::mutex> lg(data_buffer_mutex_);
-    gps_points_.push_back(G_p_Gps);
-    if (gps_points_.size() > config_.max_gps_length)
+    gnss_points_.push_back(G_p_Gps);
+    if (gnss_points_.size() > config_.max_gnss_length)
     {
-        gps_points_.pop_front();
+        gnss_points_.pop_front();
     }
 }
 
@@ -237,11 +237,11 @@ void Viewer::DrawWheeFrame()
 
 void Viewer::DrawGpsPoints()
 {
-    glPointSize(config_.gps_point_size);
+    glPointSize(config_.gnss_point_size);
     glBegin(GL_POINTS);
 
     std::lock_guard<std::mutex> lg(data_buffer_mutex_);
-    for (const Eigen::Vector3d &pt : gps_points_)
+    for (const Eigen::Vector3d &pt : gnss_points_)
     {
         glVertex3f(pt[0], pt[1], pt[2]);
     }
@@ -279,7 +279,7 @@ void Viewer::Run()
     pangolin::Var<bool> show_traj("menu.Show Traj", true, true);
     pangolin::Var<bool> show_gt_traj("menu.Show GroundTruth", true, true);
     pangolin::Var<bool> show_raw_odom("menu.Show Raw Odom", config_.show_raw_odom, true);
-    pangolin::Var<bool> show_gps_point("menu.Show GPS", config_.show_gps_points, true);
+    pangolin::Var<bool> show_gnss_point("menu.Show GNSS", config_.show_gnss_points, true);
 
     // Define Camera Render Object (for view / scene browsing)
     pangolin::OpenGlRenderState s_cam(
@@ -368,7 +368,7 @@ void Viewer::Run()
         }
 
         // Draw Gps points.
-        if (show_gps_point.Get())
+        if (show_gnss_point.Get())
         {
             glColor3f(0.0f, 1.0f, 1.0f);
             DrawGpsPoints();

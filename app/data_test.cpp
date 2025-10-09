@@ -18,6 +18,7 @@ int main() {
             imu_data.time_ = input_data.time_;
             imu_data.a_ = input_data.a_;
             imu_data.w_ = input_data.w_;
+            // LOG(INFO) << "imu data: time: " << imu_data.time_ << ", a: " << imu_data.a_.transpose() << ", w: " << imu_data.w_.transpose();
             data_manager_ptr->Input(imu_data);
         } else if (input_data.data_type_ == 1) {
             WheelData wheel_data;
@@ -26,12 +27,13 @@ int main() {
             wheel_data.rv_ = input_data.rv_;
             data_manager_ptr->Input(wheel_data);
         } else if (input_data.data_type_ == 2) {
-            GPSData gps_data;
-            gps_data.time_ = input_data.time_;
-            gps_data.lat_ = input_data.lat_;
-            gps_data.lon_ = input_data.lon_;
-            gps_data.h_ = input_data.h_;
-            data_manager_ptr->Input(gps_data);
+            GNSSData gnss_data;
+            gnss_data.time_ = input_data.time_;
+            gnss_data.lat_ = input_data.lat_;
+            gnss_data.lon_ = input_data.lon_;
+            gnss_data.h_ = input_data.h_;
+            // LOG(INFO) << "gnss data: time: " << gnss_data.time_ << ", lat: " << gnss_data.lat_ << ", lon: " << gnss_data.lon_ << ", h: " << gnss_data.h_;
+            data_manager_ptr->Input(gnss_data);
             // todo error add
         } else if (input_data.data_type_ == 3) {
             CameraData camera_data;

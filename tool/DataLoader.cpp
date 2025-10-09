@@ -4,19 +4,19 @@ DataLoader::DataLoader(const std::shared_ptr<Parameter> & param_ptr) {
     param_ptr_ = param_ptr;
     std::cout << "data path: " << param_ptr_->data_path_ << std::endl;
     ReadIMU(param_ptr_->data_path_ + "/imu.txt");
-    ReadGPS(param_ptr_->data_path_ + "/gps.txt");
+    ReadGNSS(param_ptr_->data_path_ + "/gnss.txt");
     ReadWheel(param_ptr_->data_path_ + "/encoder.txt");
     ReadImage(param_ptr_->data_path_ + "/image.txt");
 
-    while (!gps_datas_.empty() || !imu_datas_.empty() || !wheel_datas_.empty() || !image_datas_.empty()) {
-        double gps_time = !gps_datas_.empty() ? gps_datas_.front().time_ : DBL_MAX;
+    while (!gnss_datas_.empty() || !imu_datas_.empty() || !wheel_datas_.empty() || !image_datas_.empty()) {
+        double gnss_time = !gnss_datas_.empty() ? gnss_datas_.front().time_ : DBL_MAX;
         double imu_time = !imu_datas_.empty() ? imu_datas_.front().time_ : DBL_MAX;
         double wheel_time = !wheel_datas_.empty() ? wheel_datas_.front().time_ : DBL_MAX;
         double image_time = !image_datas_.empty() ? image_datas_.front().time_ : DBL_MAX;
-        double current_data_time = std::min(gps_time, std::min(imu_time, std::min(wheel_time, image_time)));
-        if (current_data_time == gps_time) {
-            datas_.push(gps_datas_.front());
-            gps_datas_.pop();
+        double current_data_time = std::min(gnss_time, std::min(imu_time, std::min(wheel_time, image_time)));
+        if (current_data_time == gnss_time) {
+            datas_.push(gnss_datas_.front());
+            gnss_datas_.pop();
         }
         else if (current_data_time == imu_time) {
             datas_.push(imu_datas_.front());
@@ -61,7 +61,7 @@ bool DataLoader::ReadIMU(const std::string & path)
 
     if (!imu_file.is_open())
     {
-        std::cerr << "failure to open gps file: " << path << std::endl;
+        std::cerr << "failure to open gnss file: " << path << std::endl;
         return false;
     }
 
@@ -75,7 +75,10 @@ bool DataLoader::ReadIMU(const std::string & path)
         InputData data;
 
         std::getline(imu_data_ss, temp, ',');
-        data.time_ = std::stod(temp.substr(5, 5)) + std::stod(temp.substr(10, 4)) * 0.0001;;
+        if (temp.size() > 10)
+            data.time_ = std::stod(temp.substr(5, 5)) + std::stod(temp.substr(10, 4)) * 0.0001;
+        else
+            data.time_ = std::stod(temp);
 
         std::getline(imu_data_ss, temp, ',');
         std::getline(imu_data_ss, temp, ',');
@@ -107,46 +110,49 @@ bool DataLoader::ReadIMU(const std::string & path)
     return true;
 }
 
-bool DataLoader::ReadGPS(const std::string & path) {
-    std::ifstream gps_file(path, std::ios::in);
+bool DataLoader::ReadGNSS(const std::string & path) {
+    std::ifstream gnss_file(path, std::ios::in);
 
-    if (!gps_file.is_open())
+    if (!gnss_file.is_open())
     {
-        std::cerr << "failure to open gps file: " << path << std::endl;
+        std::cerr << "failure to open gnss file: " << path << std::endl;
         return false;
     }
 
-    std::string gps_data_line;
+    std::string gnss_data_line;
     std::string temp;
 
-    while (std::getline(gps_file, gps_data_line))
+    while (std::getline(gnss_file, gnss_data_line))
     {
-        std::stringstream gps_data_ss;
-        gps_data_ss << gps_data_line;
+        std::stringstream gnss_data_ss;
+        gnss_data_ss << gnss_data_line;
         InputData data;
 
-        std::getline(gps_data_ss, temp, ',');
-        data.time_ = std::stod(temp.substr(5, 5)) + std::stod(temp.substr(10, 4)) * 0.0001;
+        std::getline(gnss_data_ss, temp, ',');
+        if (temp.size() > 10)
+            data.time_ = std::stod(temp.substr(5, 5)) + std::stod(temp.substr(10, 4)) * 0.0001;
+        else
+            data.time_ = std::stod(temp);
 
-        std::getline(gps_data_ss, temp, ',');
+        std::getline(gnss_data_ss, temp, ',');
         data.lat_ = std::stod(temp) * d2r_;
-        std::getline(gps_data_ss, temp, ',');
+        std::getline(gnss_data_ss, temp, ',');
         data.lon_ = std::stod(temp) * d2r_;
-        std::getline(gps_data_ss, temp, ',');
+        std::getline(gnss_data_ss, temp, ',');
         data.h_ = std::stod(temp);
 
-        std::getline(gps_data_ss, temp, ',');
+        std::getline(gnss_data_ss, temp, ',');
         data.lat_error_ = std::stod(temp);
-        std::getline(gps_data_ss, temp, ',');
+        std::getline(gnss_data_ss, temp, ',');
         data.lon_error_  = std::stod(temp);
-        std::getline(gps_data_ss, temp, ',');
+        std::getline(gnss_data_ss, temp, ',');
         data.h_error_  = std::stod(temp);
 
         data.data_type_ = 2;
-        gps_datas_.push(data);
+        gnss_datas_.push(data);
     }
-    LOG(INFO) << "gps data size: " << gps_datas_.size() << std::endl;
-    gps_file.close();
+    LOG(INFO) << "gnss data size: " << gnss_datas_.size() << std::endl;
+    gnss_file.close();
     return true;
 }
 

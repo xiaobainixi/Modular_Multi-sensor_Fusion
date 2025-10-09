@@ -19,20 +19,21 @@ public:
         return T_inv;
     }
 
-    static Eigen::Matrix3d Skew(const Eigen::Vector3d &in)
-    {
-        Eigen::Matrix3d matrix;
-        matrix << 0.0, -in[2], in[1],
-            in[2], 0.0, -in[0],
-            -in[1], in[0], 0.0;
-        return matrix;
-    }
-
     // static Eigen::Matrix3d NormalizeRotation(const Eigen::Matrix3d &R)
     // {
     //     Eigen::JacobiSVD<Eigen::Matrix3d> svd(R, Eigen::ComputeFullU | Eigen::ComputeFullV);
     //     return svd.matrixU() * svd.matrixV().transpose();
     // }
+
+    // 旋转向量（so(3)）转四元数
+    static Eigen::Quaterniond so3ToQuat(const Eigen::Vector3d& vec)
+    {
+        Eigen::AngleAxisd aa(vec.norm(), vec.normalized());
+        if (vec.norm() < 1e-10) {
+            return Eigen::Quaterniond::Identity();
+        }
+        return Eigen::Quaterniond(aa);
+    }
 
     static Eigen::Matrix3d ExpSO3(const Eigen::Vector3d &vec)
     {
@@ -74,7 +75,7 @@ public:
      *          [ w3   0 -w1]
      *          [-w2  w1   0]
      */
-    static Eigen::Matrix3d SkewSymmetric(const Eigen::Vector3d &w)
+    static Eigen::Matrix3d Skew(const Eigen::Vector3d &w)
     {
         Eigen::Matrix3d w_hat;
         w_hat(0, 0) = 0;
@@ -135,5 +136,40 @@ public:
         {
             return Eigen::Matrix3d::Identity() - W*(1.0-cos(d))/d2 + W*W*(d-sin(d))/(d2*d);
         }
+    }
+
+    template <typename Derived>
+    static Eigen::Quaternion<typename Derived::Scalar> deltaQ(const Eigen::MatrixBase<Derived> &theta)
+    {
+        typedef typename Derived::Scalar Scalar_t;
+
+        Eigen::Quaternion<Scalar_t> dq;
+        Eigen::Matrix<Scalar_t, 3, 1> half_theta = theta;
+        half_theta /= static_cast<Scalar_t>(2.0);
+        dq.w() = static_cast<Scalar_t>(1.0);
+        dq.x() = half_theta.x();
+        dq.y() = half_theta.y();
+        dq.z() = half_theta.z();
+        return dq;
+    }
+
+    template <typename Derived>
+    static Eigen::Matrix<typename Derived::Scalar, 4, 4> Qleft(const Eigen::QuaternionBase<Derived> &q)
+    {
+        Eigen::Quaternion<typename Derived::Scalar> qq = q;
+        Eigen::Matrix<typename Derived::Scalar, 4, 4> ans;
+        ans(0, 0) = qq.w(), ans.template block<1, 3>(0, 1) = -qq.vec().transpose();
+        ans.template block<3, 1>(1, 0) = qq.vec(), ans.template block<3, 3>(1, 1) = qq.w() * Eigen::Matrix<typename Derived::Scalar, 3, 3>::Identity() + Skew(qq.vec());
+        return ans;
+    }
+
+    template <typename Derived>
+    static Eigen::Matrix<typename Derived::Scalar, 4, 4> Qright(const Eigen::QuaternionBase<Derived> &p)
+    {
+        Eigen::Quaternion<typename Derived::Scalar> pp = p;
+        Eigen::Matrix<typename Derived::Scalar, 4, 4> ans;
+        ans(0, 0) = pp.w(), ans.template block<1, 3>(0, 1) = -pp.vec().transpose();
+        ans.template block<3, 1>(1, 0) = pp.vec(), ans.template block<3, 3>(1, 1) = pp.w() * Eigen::Matrix<typename Derived::Scalar, 3, 3>::Identity() - Skew(pp.vec());
+        return ans;
     }
 };

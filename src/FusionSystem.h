@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include "updater/Filter.h"
+#include "updater/Optimizer.h"
 
 class FusionSystem {
 public:
@@ -15,16 +16,16 @@ public:
         if (param_ptr_->fusion_model_ == 0) {
             updater_ptr_ = std::make_shared<Filter>(param_ptr_, data_manager_ptr_, state_manager_ptr_, viewer_ptr_);
         } else if (param_ptr_->fusion_model_ == 1) {
-            // todo opt
+            updater_ptr_ = std::make_shared<Optimizer>(param_ptr_, data_manager_ptr_, state_manager_ptr_, viewer_ptr_);
         }
     }
 
-    void Input(const IMUData &imu_data) {
-        data_manager_ptr_->Input(imu_data);
-    }
-    void Input(const GPSData &gps_data) {
-        data_manager_ptr_->Input(gps_data);
-    }
+    // void Input(const IMUData &imu_data) {
+    //     data_manager_ptr_->Input(imu_data);
+    // }
+    // void Input(const GNSSData &gnss_data) {
+    //     data_manager_ptr_->Input(gnss_data);
+    // }
 
     // State GetNewestState() {
 

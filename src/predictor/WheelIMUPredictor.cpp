@@ -62,7 +62,7 @@ void WheelIMUPredictor::RunOnce() {
     Eigen::Vector3d last_unbias_angular_vel = last_data_.w_ + last_state_ptr->bg_;
     Eigen::Vector3d angular_delta = 0.5 * (cur_unbias_angular_vel + last_unbias_angular_vel) * delta_t;
 
-    cur_state_ptr->Rwb_ =  last_state_ptr->Rwb_ * Eigen::AngleAxisd(angular_delta.norm(), angular_delta.normalized()).toRotationMatrix();
+    cur_state_ptr->Rwb_ =  last_state_ptr->Rwb_ * Converter::so3ToQuat(angular_delta);
 
     //---------------------------------------------------------------------------------------------------
     // 使用计算出的速度算位置变化
@@ -72,13 +72,15 @@ void WheelIMUPredictor::RunOnce() {
     // 计算协方差矩阵
     // 定义： 理想数值（优质数值） = 估计数值 + 误差
     Eigen::MatrixXd F = Eigen::MatrixXd::Zero(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM);
-    F.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) = last_state_ptr->Rwb_ * Converter::RightJacobianSO3(angular_delta);
-    F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->ORI_INDEX_STATE_) = -Converter::Skew(last_state_ptr->Rwb_ * velo_vec);
+    F.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) =
+        cur_state_ptr->Rwb_ * Converter::RightJacobianSO3(angular_delta);
+    F.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->ORI_INDEX_STATE_) =
+        -Converter::Skew(last_state_ptr->Rwb_ * velo_vec);
 
     Eigen::MatrixXd G = Eigen::MatrixXd::Zero(param_ptr_->STATE_DIM, 9);
-    G.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, 0) = last_state_ptr->Rwb_ * Converter::RightJacobianSO3(angular_delta) * delta_t;
+    G.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, 0) = cur_state_ptr->Rwb_ * Converter::RightJacobianSO3(angular_delta) * delta_t;
     G.block<3, 3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, 3) = Eigen::Matrix3d::Identity();
-    G.block<3, 3>(param_ptr_->POSI_INDEX, 6) = last_state_ptr->Rwb_ * delta_t;
+    G.block<3, 3>(param_ptr_->POSI_INDEX, 6) = last_state_ptr->Rwb_.toRotationMatrix() * delta_t;
 
     Eigen::MatrixXd Phi = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM) + F * delta_t;
 
@@ -95,5 +97,5 @@ void WheelIMUPredictor::RunOnce() {
     last_data_ = curr_data;
 
     if (viewer_ptr_)
-        viewer_ptr_->DrawWheelPose(cur_state_ptr->Rwb_, cur_state_ptr->twb_);
+        viewer_ptr_->DrawWheelPose(cur_state_ptr->Rwb_.toRotationMatrix(), cur_state_ptr->twb_);
 }

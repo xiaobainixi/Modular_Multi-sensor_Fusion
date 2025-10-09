@@ -13,10 +13,19 @@
 
 #include "viewer/Viewer.h"
 
+#include "preint/IMUPreintegration.h"
+
 class Predictor {
 public:
     Predictor() = default;
     virtual void RunOnce() {}
+
+    virtual std::shared_ptr<Preintegration> CreatePreintegration(
+        const double start_time,
+        const double end_time,
+        const Eigen::Vector3d& ba,
+        const Eigen::Vector3d& bg) {}
+
 protected:
     virtual void Run() = 0;
     std::shared_ptr<std::thread> run_thread_ptr_;
