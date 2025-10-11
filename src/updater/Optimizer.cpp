@@ -5,17 +5,32 @@
 bool QLocalParameterization::Plus(const double *x, const double *delta, double *x_plus_delta) const
 {
     Eigen::Map<const Eigen::Quaterniond> _q(x);
-    Eigen::Quaterniond dq = Converter::deltaQ(Eigen::Map<const Eigen::Vector3d>(delta));
+    Eigen::Quaterniond dq = Converter::RotVecToQuaternion(Eigen::Map<const Eigen::Vector3d>(delta));
     Eigen::Map<Eigen::Quaterniond> q(x_plus_delta);
     q = (_q * dq).normalized();
     return true;
 }
 bool QLocalParameterization::ComputeJacobian(const double *x, double *jacobian) const
 {
+    // 这里要注意！！！！！！！
+    // 自己算雅可比时，关于旋转的雅可比直接对应的是旋转向量，所以这里是单位阵
     Eigen::Map<Eigen::Matrix<double, 4, 3, Eigen::RowMajor>> j(jacobian);
     j.topRows<3>().setIdentity();
     j.bottomRows<1>().setZero();
 
+    // 自动求导时求的是关于四元数的雅可比 所以这里要加四元数相对于旋转向量的雅可比
+    // Eigen::Map<const Eigen::Quaterniond> q(x);            // (x,y,z,w)
+    // const double xq = q.x();
+    // const double yq = q.y();
+    // const double zq = q.z();
+    // const double wq = q.w();
+
+    // Eigen::Map<Eigen::Matrix<double,4,3,Eigen::RowMajor>> J(jacobian);
+    // J <<  0.5*wq,   -0.5*zq,   0.5*yq,
+    //       0.5*zq,    0.5*wq,  -0.5*xq,
+    //      -0.5*yq,    0.5*xq,   0.5*wq,
+    //      -0.5*xq,   -0.5*yq,  -0.5*zq;
+    // return true;
     return true;
 }
 
@@ -159,10 +174,8 @@ void Optimizer::SlideWindow()
             {
                 marg_index = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
             }
-            auto factor = std::make_shared<ceres::AutoDiffCostFunction<IMUPreintegrationResidual, 15,
-                3, 4, 3, 3, 3, // Pi, Qi, Vi, Bai, Bgi
-                3, 4, 3, 3, 3  // Pj, Qj, Vj, Baj, Bgj
-                >>(new IMUPreintegrationResidual(std::dynamic_pointer_cast<IMUPreintegration>(preint_ptr)));
+            auto factor = std::make_shared<IMUPreintegrationResidual>(
+                std::dynamic_pointer_cast<IMUPreintegration>(preint_ptr), param_ptr_);
             auto residual = std::make_shared<ResidualBlockInfo>(
                 factor, nullptr,
                 std::vector<double *>{window_states[i]->twb_.data(), window_states[i]->Rwb_.coeffs().data(),
@@ -182,10 +195,8 @@ void Optimizer::SlideWindow()
             {
                 marg_index = {0, 1, 2, 3};
             }
-            auto factor = std::make_shared<ceres::AutoDiffCostFunction<WheelPreintegrationResidual, 6,
-                3, 4, // Pi, Qi
-                3, 4  // Pj, Qj
-                >>(new WheelPreintegrationResidual(std::dynamic_pointer_cast<WheelPreintegration>(preint_ptr)));
+            auto factor = std::make_shared<WheelPreintegrationResidual>(
+                std::dynamic_pointer_cast<WheelPreintegration>(preint_ptr), param_ptr_);
             auto residual = std::make_shared<ResidualBlockInfo>(
                 factor, nullptr,
                 std::vector<double *>{window_states[i]->twb_.data(), window_states[i]->Rwb_.coeffs().data(),
@@ -203,10 +214,8 @@ void Optimizer::SlideWindow()
             {
                 marg_index = {0, 1, 2, 3, 4, 5};
             }
-            auto factor = std::make_shared<ceres::AutoDiffCostFunction<WheelIMUPreintegrationResidual, 9,
-                3, 4, 3, // Pi, Qi, Bgi
-                3, 4, 3  // Pj, Qj, Bgj
-                >>(new WheelIMUPreintegrationResidual(std::dynamic_pointer_cast<WheelIMUPreintegration>(preint_ptr)));
+            auto factor = std::make_shared<WheelIMUPreintegrationResidual>(
+                std::dynamic_pointer_cast<WheelIMUPreintegration>(preint_ptr), param_ptr_);
             auto residual = std::make_shared<ResidualBlockInfo>(
                 factor, nullptr,
                 std::vector<double *>{window_states[i]->twb_.data(), window_states[i]->Rwb_.coeffs().data(), window_states[i]->bg_.data(),
@@ -359,7 +368,7 @@ void Optimizer::Optimization()
 
     ceres::Problem problem;
 
-    LOG(INFO) << "窗口大小: " << window_states.size();
+    // LOG(INFO) << "窗口大小: " << window_states.size();
     for (size_t i = 0; i < window_states.size(); ++i)
     {
         auto state = window_states[i];
@@ -370,13 +379,6 @@ void Optimizer::Optimization()
         problem.AddParameterBlock(state->Vw_.data(), 3);
         problem.AddParameterBlock(state->ba_.data(), 3);
         problem.AddParameterBlock(state->bg_.data(), 3);
-        // if (i == 0) {
-        //     problem.SetParameterBlockConstant(state->twb_.data());
-        //     problem.SetParameterBlockConstant(state->Rwb_.coeffs().data());
-        //     problem.SetParameterBlockConstant(state->Vw_.data());
-        //     problem.SetParameterBlockConstant(state->ba_.data());
-        //     problem.SetParameterBlockConstant(state->bg_.data());
-        // }
         // LOG(INFO) << "state[" << i << "] twb_: " << static_cast<void*>(state->twb_.data())
         //     << " (" << state->twb_.transpose() << ")"
         //     << ", Rwb_: " << static_cast<void*>(state->Rwb_.coeffs().data())
@@ -392,10 +394,10 @@ void Optimizer::Optimization()
     //     LOG(INFO) << "last_block_address: " << last_block_address << " " << last_block_address[0];
     // 边缘化残差
     // The prior factor
-    // if (last_marginalization_info_ && last_marginalization_info_->isValid()) {
-    //     auto factor = new MarginalizationFactor(last_marginalization_info_);
-    //     problem.AddResidualBlock(factor, nullptr, last_marginalization_parameter_blocks_);
-    // }
+    if (last_marginalization_info_ && last_marginalization_info_->isValid()) {
+        auto factor = new MarginalizationFactor(last_marginalization_info_);
+        problem.AddResidualBlock(factor, nullptr, last_marginalization_parameter_blocks_);
+    }
 
     // GNSS约束
     for (size_t i = 0; i < window_states.size(); ++i)
@@ -418,34 +420,28 @@ void Optimizer::Optimization()
         {
             std::shared_ptr<IMUPreintegration> preint_ptr =
                 std::dynamic_pointer_cast<IMUPreintegration>(window_states[i]->preint_);
-            ceres::CostFunction *imu_cost = new ceres::AutoDiffCostFunction<IMUPreintegrationResidual, 15,
-                3, 4, 3, 3, 3, // Pi, Qi, Vi, Bai, Bgi
-                3, 4, 3, 3, 3  // Pj, Qj, Vj, Baj, Bgj
-                >(new IMUPreintegrationResidual(preint_ptr));
+            ceres::CostFunction *imu_cost = new IMUPreintegrationResidual(preint_ptr, param_ptr_);
             problem.AddResidualBlock(imu_cost, nullptr,
                 state_i->twb_.data(), state_i->Rwb_.coeffs().data(), state_i->Vw_.data(), state_i->ba_.data(), state_i->bg_.data(),
                 state_j->twb_.data(), state_j->Rwb_.coeffs().data(), state_j->Vw_.data(), state_j->ba_.data(), state_j->bg_.data());
             // 打印最后一个 preint_ptr 信息
-            if (i == window_states.size() - 1 && preint_ptr)
-            {
-                LOG(INFO) << "preint_ptr sum_dt: " << preint_ptr->sum_dt_;
-                LOG(INFO) << "preint_ptr delta_p: " << preint_ptr->delta_p_.transpose();
-                LOG(INFO) << "preint_ptr delta_v: " << preint_ptr->delta_v_.transpose();
-                LOG(INFO) << "preint_ptr delta_q (wxyz): " << preint_ptr->delta_q_.w() << ", "
-                          << preint_ptr->delta_q_.x() << ", " << preint_ptr->delta_q_.y() << ", " << preint_ptr->delta_q_.z();
-                LOG(INFO) << "preint_ptr covariance max: " << preint_ptr->covariance_.maxCoeff()
-                          << " min: " << preint_ptr->covariance_.minCoeff();
-            }
+            // if (i == window_states.size() - 1 && preint_ptr)
+            // {
+            //     LOG(INFO) << "preint_ptr sum_dt: " << preint_ptr->sum_dt_;
+            //     LOG(INFO) << "preint_ptr delta_p: " << preint_ptr->delta_p_.transpose();
+            //     LOG(INFO) << "preint_ptr delta_v: " << preint_ptr->delta_v_.transpose();
+            //     LOG(INFO) << "preint_ptr delta_q (wxyz): " << preint_ptr->delta_q_.w() << ", "
+            //               << preint_ptr->delta_q_.x() << ", " << preint_ptr->delta_q_.y() << ", " << preint_ptr->delta_q_.z();
+            //     LOG(INFO) << "preint_ptr covariance max: " << preint_ptr->covariance_.maxCoeff()
+            //               << " min: " << preint_ptr->covariance_.minCoeff();
+            // }
         }
         else if (preintegration_type_ == 1)
         {
             // 仅轮速计
             std::shared_ptr<WheelPreintegration> preint_ptr =
                 std::dynamic_pointer_cast<WheelPreintegration>(window_states[i]->preint_);
-            ceres::CostFunction *wheel_cost = new ceres::AutoDiffCostFunction<WheelPreintegrationResidual, 6,
-                3, 4, // Pi, Qi
-                3, 4  // Pj, Qj
-                >(new WheelPreintegrationResidual(preint_ptr));
+            ceres::CostFunction *wheel_cost = new WheelPreintegrationResidual(preint_ptr, param_ptr_);
             problem.AddResidualBlock(wheel_cost, nullptr,
                 state_i->twb_.data(), state_i->Rwb_.coeffs().data(),
                 state_j->twb_.data(), state_j->Rwb_.coeffs().data());
@@ -455,23 +451,20 @@ void Optimizer::Optimization()
             // imu+轮速计
             std::shared_ptr<WheelIMUPreintegration> preint_ptr =
                 std::dynamic_pointer_cast<WheelIMUPreintegration>(window_states[i]->preint_);
-            ceres::CostFunction *wheelimu_cost = new ceres::AutoDiffCostFunction<WheelIMUPreintegrationResidual, 9,
-                3, 4, 3, // Pi, Qi, Bgi
-                3, 4, 3  // Pj, Qj, Bgj
-                >(new WheelIMUPreintegrationResidual(preint_ptr));
+            ceres::CostFunction *wheelimu_cost = new WheelIMUPreintegrationResidual(preint_ptr, param_ptr_);
             problem.AddResidualBlock(wheelimu_cost, nullptr,
                 state_i->twb_.data(), state_i->Rwb_.coeffs().data(), state_i->bg_.data(),
                 state_j->twb_.data(), state_j->Rwb_.coeffs().data(), state_j->bg_.data());
         }
     }
 
-    auto cur_state = window_states.back();
-    LOG(INFO) << "优化前位姿: " << cur_state->twb_.transpose();
-    LOG(INFO) << "优化前速度: " << cur_state->Vw_.transpose();
-    LOG(INFO) << "优化前加速度零偏: " << cur_state->ba_.transpose();
-    LOG(INFO) << "优化前陀螺零偏: " << cur_state->bg_.transpose();
-    LOG(INFO) << "优化前旋转矩阵:\n"
-                << cur_state->Rwb_ << cur_state->Rwb_.coeffs().transpose();
+    // auto cur_state = window_states.back();
+    // LOG(INFO) << "优化前位姿: " << cur_state->twb_.transpose();
+    // LOG(INFO) << "优化前速度: " << cur_state->Vw_.transpose();
+    // LOG(INFO) << "优化前加速度零偏: " << cur_state->ba_.transpose();
+    // LOG(INFO) << "优化前陀螺零偏: " << cur_state->bg_.transpose();
+    // LOG(INFO) << "优化前旋转矩阵:\n"
+    //             << cur_state->Rwb_ << cur_state->Rwb_.coeffs().transpose();
 
     // 优化
     ceres::Solver::Options options;
@@ -481,10 +474,10 @@ void Optimizer::Optimization()
     options.max_num_iterations = 24;
     ceres::Solver::Summary summary;
     
-
+    /** 
+    // 打印误差
     std::vector<ceres::ResidualBlockId> residual_block_ids;
     problem.GetResidualBlocks(&residual_block_ids);
-
     int residual_block_idx = 0;
     for (const auto& residual_block : residual_block_ids) {
         std::vector<double*> parameter_blocks;
@@ -509,19 +502,20 @@ void Optimizer::Optimization()
         LOG(INFO) << oss.str();
         residual_block_idx++;
     }
+    */
 
     // LOG(INFO) << "优化前状态：";
     ceres::Solve(options, &problem, &summary);
 
-    cur_state = window_states.back();
-    LOG(INFO) << "优化后位姿: " << cur_state->twb_.transpose();
-    LOG(INFO) << "优化后速度: " << cur_state->Vw_.transpose();
-    LOG(INFO) << "优化后加速度零偏: " << cur_state->ba_.transpose();
-    LOG(INFO) << "优化后陀螺零偏: " << cur_state->bg_.transpose();
-    LOG(INFO) << "优化后旋转矩阵:\n"
-                << cur_state->Rwb_ << cur_state->Rwb_.coeffs().transpose();
-    auto gnss_data = cur_state->cur_gnss_data_;
-    LOG(INFO) << "GNSS: " << std::to_string(gnss_data.time_) << ", " << gnss_data.x_ << ", " << gnss_data.y_ << ", " << gnss_data.z_;
+    // cur_state = window_states.back();
+    // LOG(INFO) << "优化后位姿: " << cur_state->twb_.transpose();
+    // LOG(INFO) << "优化后速度: " << cur_state->Vw_.transpose();
+    // LOG(INFO) << "优化后加速度零偏: " << cur_state->ba_.transpose();
+    // LOG(INFO) << "优化后陀螺零偏: " << cur_state->bg_.transpose();
+    // LOG(INFO) << "优化后旋转矩阵:\n"
+    //             << cur_state->Rwb_ << cur_state->Rwb_.coeffs().transpose();
+    // auto gnss_data = cur_state->cur_gnss_data_;
+    // LOG(INFO) << "GNSS: " << std::to_string(gnss_data.time_) << ", " << gnss_data.x_ << ", " << gnss_data.y_ << ", " << gnss_data.z_;
 }
 // todo add other sensor
 void Optimizer::Run()

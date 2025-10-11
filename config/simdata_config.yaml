@@ -6,7 +6,7 @@ fusion_model: 1
 # predict type
 use_imu: 1
 # 0 not use 1 predict 2 obs
-wheel_use_type: 1
+wheel_use_type: 0
 
 # obs type
 # gnss与轮速做时间对齐后一起更新，否则为分开更新
@@ -15,27 +15,25 @@ use_gnss: 1
 use_camera: 0
 
 # sensor conv
-gyro_noise: 1e-05 # 100hz
+gyro_noise: 1e-04 # 100hz
 gyro_bias_noise: 1e-06 # 100hz
 acc_noise: 1e-04 # 100hz
 acc_bias_noise: 1e-05 # 100hz
 
-# 优化法
-gnss_x_noise: 5e-3
-gnss_y_noise: 5e-3
-gnss_z_noise: 5e-3
+gnss_x_noise: 1e-3
+gnss_y_noise: 1e-3
+gnss_z_noise: 1e-3
 
-# 滤波法
-# gnss_x_noise: 1.0
-# gnss_y_noise: 1.0
-# gnss_z_noise: 2.0
+# gnss_x_noise: 5.0
+# gnss_y_noise: 5.0
+# gnss_z_noise: 10.0
 
 # wheel
 # new
 wheel_kl: 0.00047820240382508
 wheel_kr: 0.00047768621928995
 wheel_b: 1.52439
-wheel_vel_noise: 1e-04  # 100hz
+wheel_vel_noise: 5e-03  # 100hz
 fix_yz_in_eskf: 0
 
 visual_observation_noise: 100000000.0
@@ -67,4 +65,5 @@ tbc: !!opencv-matrix
 
 # data
 play_speed: 10.0
-data_path: ../data/
+# data_path: /home/l/slam/data
+data_path: ../data/sim_data

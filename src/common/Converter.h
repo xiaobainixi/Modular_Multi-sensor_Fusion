@@ -103,6 +103,11 @@ public:
         return InverseRightJacobianSO3(v[0],v[1],v[2]);
     }
 
+    static Eigen::Matrix3d InverseRightJacobianSO3(const Eigen::Quaterniond& q)
+    {
+        return InverseRightJacobianSO3(QuaternionToRotVec(q));
+    }
+
     static Eigen::Matrix3d InverseRightJacobianSO3(const double x, const double y, const double z)
     {
         const double d2 = x*x+y*y+z*z;
@@ -138,18 +143,51 @@ public:
         }
     }
 
+    // 四元数 -> 旋转向量 (axis-angle 的 angle*axis 形式, so(3)向量)
+    static Eigen::Vector3d QuaternionToRotVec(const Eigen::Quaterniond& q_in) {
+        Eigen::Quaterniond q = q_in.normalized();
+        double w = q.w();
+        Eigen::Vector3d v = q.vec();
+        double nv = v.norm();
+        // 若接近单位，使用一阶近似避免除零
+        if (nv < 1e-12) {
+            // q ≈ [ε, 1]；旋转向量 ≈ 2 * v
+            return 2.0 * v;
+        }
+        double angle = 2.0 * std::atan2(nv, w);
+        // 将角度映射到 (-pi, pi] 以保持唯一
+        if (angle > M_PI) {
+            angle -= 2.0 * M_PI;
+        }
+        Eigen::Vector3d axis = v / nv;
+        return angle * axis;
+    }
+
     template <typename Derived>
-    static Eigen::Quaternion<typename Derived::Scalar> deltaQ(const Eigen::MatrixBase<Derived> &theta)
+    static Eigen::Quaternion<typename Derived::Scalar> RotVecToQuaternion(
+        const Eigen::MatrixBase<Derived> &theta)
     {
         typedef typename Derived::Scalar Scalar_t;
-
+        // Scalar_t angle = theta.norm();
+        // Eigen::Vector3<Scalar_t> vec = theta.normalized();
+        // return Eigen::Quaternion<Scalar_t>(Eigen::AngleAxis<Scalar_t>(angle, vec));
+        Scalar_t theta_norm = theta.norm();
         Eigen::Quaternion<Scalar_t> dq;
-        Eigen::Matrix<Scalar_t, 3, 1> half_theta = theta;
-        half_theta /= static_cast<Scalar_t>(2.0);
-        dq.w() = static_cast<Scalar_t>(1.0);
-        dq.x() = half_theta.x();
-        dq.y() = half_theta.y();
-        dq.z() = half_theta.z();
+        if (theta_norm < Scalar_t(1e-8)) {
+            dq.w() = Scalar_t(1.0);
+            dq.x() = theta.x() * Scalar_t(0.5);
+            dq.y() = theta.y() * Scalar_t(0.5);
+            dq.z() = theta.z() * Scalar_t(0.5);
+        } else {
+            Scalar_t half_theta = theta_norm * Scalar_t(0.5);
+            Scalar_t sin_half_theta = sin(half_theta);
+            Scalar_t scale = sin_half_theta / theta_norm;
+            dq.w() = cos(half_theta);
+            dq.x() = theta.x() * scale;
+            dq.y() = theta.y() * scale;
+            dq.z() = theta.z() * scale;
+        }
+        dq.normalize();
         return dq;
     }
 

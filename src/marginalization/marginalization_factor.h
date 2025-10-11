@@ -30,12 +30,12 @@ public:
         const std::vector<double *> &remained_block_data = marg_info_->remainedBlockData();
 
         Eigen::VectorXd dx(remained_size);
-        LOG(INFO) << "remained_block_size: " << marginalizaed_size << " " << remained_block_size.size() << " " << remained_size;
+        // LOG(INFO) << "remained_block_size: " << marginalizaed_size << " " << remained_block_size.size() << " " << remained_size;
         for (size_t i = 0; i < remained_block_size.size(); i++) {
             int size  = remained_block_size[i];
             int index = remained_block_index[i] - marginalizaed_size;
 
-            LOG(INFO) << "size: " << size << " " << index << " " << parameters[i] << " " << parameters[i][0] << " " << remained_block_data[i][0];
+            // LOG(INFO) << "size: " << size << " " << index << " " << parameters[i] << " " << parameters[i][0] << " " << remained_block_data[i][0];
             Eigen::VectorXd x  = Eigen::Map<const Eigen::VectorXd>(parameters[i], size);
             Eigen::VectorXd x0 = Eigen::Map<const Eigen::VectorXd>(remained_block_data[i], size);
 
