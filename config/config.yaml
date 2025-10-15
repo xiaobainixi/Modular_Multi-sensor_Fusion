@@ -16,7 +16,7 @@ use_camera: 0
 
 # sensor conv
 gyro_noise: 1e-05 # 100hz
-gyro_bias_noise: 1e-06 # 100hz
+gyro_bias_noise: 1e-08 # 100hz
 acc_noise: 1e-04 # 100hz
 acc_bias_noise: 1e-05 # 100hz
 

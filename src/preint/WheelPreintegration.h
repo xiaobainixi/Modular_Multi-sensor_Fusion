@@ -112,7 +112,7 @@ public:
         F.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) =
             dR33.transpose();
 
-        // 这里的6表示误差维度
+        // 这里的6表示数据误差维度
         Eigen::MatrixXd V = Eigen::MatrixXd::Zero(param_ptr_->STATE_DIM, 6);
         // 式5.37 当前时刻位移预积分误差与线速度误差的关系
         V.block<3, 3>(param_ptr_->POSI_INDEX, 0) =
@@ -129,11 +129,11 @@ public:
         sum_dt_ += dt_;
         // 更新上一个数据，用于下一次迭代
         wheel_data_0_ = wheel_data_1_;
-        // 3. 更新预积分
-        // 式5.34a 更新旋转预积分
-        delta_q_ = delta_q_ * Eigen::Quaterniond(dR);
+        // 3. 更新预积分 注意先后顺序
         // 式5.34b 更新位移预积分
         delta_p_ = delta_q_ * v_local * dt_ + delta_p_;
+        // 式5.34a 更新旋转预积分
+        delta_q_ = delta_q_ * Eigen::Quaterniond(dR);
     }
 
     // template <typename T>

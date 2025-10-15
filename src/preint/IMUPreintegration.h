@@ -449,7 +449,7 @@ public:
             {
                 LOG(ERROR) << "numerical unstable in preintegration";
             }
-
+            Eigen::Quaterniond corrected_delta_q = preint_->delta_q_ * Converter::RotVecToQuaternion(dq_dbg * (Bgi - preint_->bg_));
             // 下面开始求预积分相对于各个参数的雅克比
             // 9个参数块，分别是 Pi Qi Vi Bai Bgi Pj Qj Vj Baj Bgj
             // 每个参数块的维度分别是 3 4 3 3 3 3 4 3 3 3
@@ -467,7 +467,6 @@ public:
                 Eigen::Map<Eigen::Matrix<double, 15, 4, Eigen::RowMajor>> J(jacobians[1]);
                 J.setZero();
                 J.block<3,3>(param_ptr_->POSI_INDEX, 0) = Converter::Skew(Qi.inverse() * (-0.5 * param_ptr_->gw_ * sum_dt * sum_dt + Pj - Pi - Vi * sum_dt));
-                Eigen::Quaterniond corrected_delta_q = preint_->delta_q_ * Converter::RotVecToQuaternion(dq_dbg * (Bgi - preint_->bg_));
                 J.block<3,3>(param_ptr_->ORI_INDEX_STATE_, 0) = -(Converter::Qleft(Qj.inverse() * Qi) * Converter::Qright(corrected_delta_q)).bottomRightCorner<3,3>();
                 J.block<3,3>(param_ptr_->VEL_INDEX_STATE_, 0) = Converter::Skew(Qi.inverse() * (-param_ptr_->gw_ * sum_dt + Vj - Vi));
                 J = sqrt_info * J;
@@ -498,7 +497,7 @@ public:
                 J.setZero();
                 J.block<3,3>(param_ptr_->POSI_INDEX, 0) = -dp_dbg;
                 J.block<3,3>(param_ptr_->ORI_INDEX_STATE_, 0) =
-                    -Converter::Qleft(Qj.inverse() * Qi * preint_->delta_q_).bottomRightCorner<3,3>() * dq_dbg;
+                    -Converter::Qleft(Qj.inverse() * Qi * corrected_delta_q).bottomRightCorner<3,3>() * dq_dbg;
                 J.block<3,3>(param_ptr_->VEL_INDEX_STATE_, 0) = -dv_dbg;
                 J.block<3,3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, 0) = -Eigen::Matrix3d::Identity();
                 J = sqrt_info * J;
@@ -516,7 +515,6 @@ public:
             {
                 Eigen::Map<Eigen::Matrix<double, 15, 4, Eigen::RowMajor>> J(jacobians[6]);
                 J.setZero();
-                Eigen::Quaterniond corrected_delta_q = preint_->delta_q_ * Converter::RotVecToQuaternion(dq_dbg * (Bgi - preint_->bg_));
                 J.block<3,3>(param_ptr_->ORI_INDEX_STATE_, 0) = Converter::Qleft(corrected_delta_q.inverse() * Qi.inverse() * Qj).bottomRightCorner<3,3>();
                 J = sqrt_info * J;
             }
