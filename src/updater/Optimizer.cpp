@@ -150,7 +150,7 @@ void Optimizer::SlideWindow()
 
     for (size_t i = 0; i < num_marg; ++i)
     {
-        // GNSS因子
+        // GNSS 因子
         if (window_states[i]->cur_gnss_data_.time_ > 0)
         {
             auto gnss_data = window_states[i]->cur_gnss_data_;
@@ -158,6 +158,19 @@ void Optimizer::SlideWindow()
                 Eigen::Vector3d(gnss_data.x_, gnss_data.y_, gnss_data.z_), param_ptr_);
             auto residual = std::make_shared<ResidualBlockInfo>(
                 factor, nullptr, std::vector<double *>{window_states[i]->twb_.data()}, std::vector<int>{0});
+            marginalization_info->addResidualBlockInfo(residual);
+        }
+
+        // BaseVelocityResidual 因子
+        if (window_states[i]->cur_wheel_data_.time_ > 0)
+        {
+            auto wheel_data = window_states[i]->cur_wheel_data_;
+            auto factor = std::make_shared<BaseVelocityResidual>(
+                Eigen::Vector3d((wheel_data.lv_ + wheel_data.rv_) * 0.5, 0.0, 0.0), param_ptr_);
+            auto residual = std::make_shared<ResidualBlockInfo>(
+                factor, nullptr, std::vector<double *>{window_states[i]->Vw_.data(),
+                    window_states[i]->Rwb_.coeffs().data()},
+                std::vector<int>{0, 1});
             marginalization_info->addResidualBlockInfo(residual);
         }
 
@@ -411,6 +424,22 @@ void Optimizer::Optimization()
         }
     }
 
+    // Wheel约束
+    for (size_t i = 0; i < window_states.size(); ++i)
+    {
+        if (window_states[i]->cur_wheel_data_.time_ > 0)
+        {
+            auto wheel_data = window_states[i]->cur_wheel_data_;
+            Eigen::Vector3d Vb((wheel_data.lv_ + wheel_data.rv_) * 0.5, 0.0, 0.0);
+            ceres::CostFunction *wheel_cost =
+                new BaseVelocityResidual(Vb, param_ptr_);
+            problem.AddResidualBlock(
+                wheel_cost, nullptr,
+                window_states[i]->Vw_.data(),
+                window_states[i]->Rwb_.coeffs().data());
+        }
+    }
+
     // IMU预积分约束（窗口内相邻状态）
     for (size_t i = 1; i < window_states.size(); ++i)
     {
@@ -567,24 +596,30 @@ void Optimizer::Run()
                 last_gnss_data_ = cur_gnss_data;
                 need_opt = true;
             }
-        }
-        WheelData cur_wheel_data;
-        if (param_ptr_->wheel_use_type_ == 2 &&
-            data_manager_ptr_->GetLastWheelData(cur_wheel_data, last_wheel_data_.time_))
-        {
-            double dt = std::abs(last_state->time_ - cur_wheel_data.time_);
-            if (dt > 0.04)
+            WheelData cur_wheel_data;
+            if (param_ptr_->wheel_use_type_ == 2 &&
+                data_manager_ptr_->GetDatas(cur_wheel_data, cur_gnss_data.time_))
             {
-                auto preint = predictor_ptr_->CreatePreintegration(
-                    last_state->time_, cur_wheel_data.time_,
-                    last_state->ba_, last_state->bg_);
-                std::shared_ptr<State> new_state = preint->predict(last_state);
-                state_manager_ptr_->PushState(new_state);
-                last_state = new_state;
+                last_state->cur_wheel_data_ = cur_wheel_data;
             }
-            last_state->cur_wheel_data_ = cur_wheel_data;
-            last_wheel_data_ = cur_wheel_data;
         }
+        // WheelData cur_wheel_data;
+        // if (param_ptr_->wheel_use_type_ == 2 &&
+        //     data_manager_ptr_->GetLastWheelData(cur_wheel_data, last_wheel_data_.time_))
+        // {
+        //     double dt = std::abs(last_state->time_ - cur_wheel_data.time_);
+        //     if (dt > 0.04)
+        //     {
+        //         auto preint = predictor_ptr_->CreatePreintegration(
+        //             last_state->time_, cur_wheel_data.time_,
+        //             last_state->ba_, last_state->bg_);
+        //         std::shared_ptr<State> new_state = preint->predict(last_state);
+        //         state_manager_ptr_->PushState(new_state);
+        //         last_state = new_state;
+        //     }
+        //     last_state->cur_wheel_data_ = cur_wheel_data;
+        //     last_wheel_data_ = cur_wheel_data;
+        // }
 
         FeatureData feature_data;
         if (param_ptr_->use_camera_ &&

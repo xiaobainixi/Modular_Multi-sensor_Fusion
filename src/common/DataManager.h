@@ -64,19 +64,17 @@ bool FindNearestPair(std::deque<T>& deque, const double& time,
     typename std::deque<T>::iterator& right,
     double max_interval = 0.05)
 {
-    if (deque.empty()) return false;
+    if (deque.size() < 2) return false;
     right = std::lower_bound(deque.begin(), deque.end(), time, [](const T& a, double b){ return a.time_ < b; });
     // 边界情况：time等于第一个元素
     if (right == deque.begin()) {
         left = right;
-        // 只返回第一个元素本身
-        if (right->time_ != time) return false;
+        right = right + 1;
         return true;
     }
     // 边界情况：time等于最后一个元素
     if (right == deque.end()) {
-        left = right - 1;
-        if ((right - 1)->time_ != time) return false;
+        left = right - 2;
         right = right - 1;
         return true;
     }
@@ -283,6 +281,22 @@ public:
         for (auto it = start_right; it != end_left + 1; ++it)
             datas.push_back(*it);
         datas.push_back(InterpolateWheel(*end_left, *end_right, end));
+        return true;
+    }
+
+    bool GetDatas(WheelData& datas, const double& time, double max_interval = 0.05) {
+        std::unique_lock<std::mutex> lock(wheel_datas_mtx_);
+        if (wheel_datas_.empty() ||
+            (wheel_datas_.front().time_ - 0.02) > time ||
+            (wheel_datas_.back().time_ + 0.02) < time)
+        {
+            return false;
+        }
+
+        std::deque<WheelData>::iterator start_left, start_right;
+        if (!FindNearestPair(wheel_datas_, time, start_left, start_right, max_interval)) return false;
+
+        datas = InterpolateWheel(*start_left, *start_right, time);
         return true;
     }
 

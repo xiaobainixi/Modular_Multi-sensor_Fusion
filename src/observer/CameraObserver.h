@@ -210,8 +210,8 @@ private:
      * @brief 计算一个路标点的雅可比
      * @param  cam_state_id 有效的相机状态id
      * @param  feature_id 路标点id
-     * @param  H_x 误差相对于位姿的雅可比
-     * @param  H_f 误差相对于三维点的雅可比
+     * @param  H_x 归一化误差相对于位姿误差的雅可比
+     * @param  H_f 归一化误差相对于三维点误差的雅可比
      * @param  r 误差
      */
     void measurementJacobian(
@@ -237,7 +237,7 @@ private:
         // 4. 转到左右目相机坐标系下
         // Convert the feature position from the world frame to
         // the cam0 and cam1 frame.
-        Eigen::Vector3d p_c0 = cam_state->Rwc_ * (p_w - cam_state->twc_);
+        Eigen::Vector3d p_c0 = cam_state->Rwc_.inverse() * (p_w - cam_state->twc_);
         // p_c1 = R_c0_c1 * cam_state->Rwc_ * (p_w - cam_state->twc_ + R_w_c1.transpose() * t_cam0_cam1)
         //      = R_c0_c1 * (p_c0 + cam_state->Rwc_ * R_w_c1.transpose() * t_cam0_cam1)
         //      = R_c0_c1 * (p_c0 + R_c0_c1 * t_cam0_cam1)
@@ -246,23 +246,26 @@ private:
         // 5. 计算雅可比
         // 左相机归一化坐标点相对于左相机坐标系下的点的雅可比
         // (x, y) = (X / Z, Y / Z)
+        // 式6.78 只有一个相机
         Eigen::Matrix<double, 2, 3> dz_dpc0 = Eigen::Matrix<double, 2, 3>::Zero();
         dz_dpc0(0, 0) = 1 / p_c0(2);
         dz_dpc0(1, 1) = 1 / p_c0(2);
         dz_dpc0(0, 2) = -p_c0(0) / (p_c0(2) * p_c0(2));
         dz_dpc0(1, 2) = -p_c0(1) / (p_c0(2) * p_c0(2));
 
-        // 左相机坐标系下的三维点相对于左相机位姿的雅可比 先r后t
+        // 式6.84 左相机坐标系下的三维点相对于左相机位姿的雅可比 先r后t
         Eigen::Matrix<double, 3, 6> dpc0_dxc = Eigen::Matrix<double, 3, 6>::Zero();
         dpc0_dxc.leftCols(3) = Converter::Skew(p_c0);
-        dpc0_dxc.rightCols(3) = -cam_state->Rwc_.toRotationMatrix();
+        dpc0_dxc.rightCols(3) = -cam_state->Rwc_.inverse().toRotationMatrix();
 
-        // Vector3d p_c0 = cam_state->Rwc_ * (p_w - cam_state->twc_);
+        // Vector3d p_c0 = cam_state->Rwc_.inverse() * (p_w - cam_state->twc_);
         // p_c0 对 p_w
-        Eigen::Matrix3d dpc0_dpg = cam_state->Rwc_.toRotationMatrix();
+        Eigen::Matrix3d dpc0_dpg = cam_state->Rwc_.inverse().toRotationMatrix();
 
-        // 两个雅可比
+        // 归一化误差相对于位姿误差的雅可比
+        // 式6.87a 只有一个相机
         H_x = dz_dpc0 * dpc0_dxc;
+        // 式6.87b 只有一个相机
         H_f = dz_dpc0 * dpc0_dpg;
 
         // Modifty the measurement Jacobian to ensure

@@ -67,10 +67,10 @@ public:
 
         if (jacobians) {
             if (jacobians[0]) {
-                Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> jacobian_pose(jacobians[0]);
-                jacobian_pose.setZero();
-                jacobian_pose.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
-                jacobian_pose = sqrt_info_ * jacobian_pose;
+                Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> J(jacobians[0]);
+                J.setZero();
+                J.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
+                J = sqrt_info_ * J;
             }
         }
 
