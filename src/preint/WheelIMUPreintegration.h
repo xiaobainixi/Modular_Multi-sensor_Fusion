@@ -177,7 +177,7 @@ public:
     // }
 
     /**
-     * @brief 计算预计分残差
+     * @brief 计算预积分残差
      * 
      * @param Pi i时刻位移
      * @param Qi i时刻旋转

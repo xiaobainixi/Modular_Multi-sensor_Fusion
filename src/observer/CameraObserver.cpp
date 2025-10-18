@@ -91,9 +91,7 @@ bool CameraObserver::ComputeHZR(
 
     // Fix the covariance to be symmetric
     // 强制对称
-    Eigen::MatrixXd state_cov_fixed = (state_ptr->C_ +
-                                state_ptr->C_.transpose()) /
-                                2.0;
+    Eigen::MatrixXd state_cov_fixed = (state_ptr->C_ + state_ptr->C_.transpose()) / 2.0;
     state_ptr->C_ = state_cov_fixed;
 
 

@@ -271,13 +271,16 @@ private:
         // Modifty the measurement Jacobian to ensure
         // observability constrain.
         // 6. OC
+        // 式6.114
         Eigen::Matrix<double, 2, 6> A = H_x;
         Eigen::Matrix<double, 6, 1> u = Eigen::Matrix<double, 6, 1>::Zero();
         u.block<3, 1>(0, 0) = 
             cam_state->Rwc_null_ * param_ptr_->gw_;
         u.block<3, 1>(3, 0) =
             Converter::Skew(p_w - cam_state->twc_null_) * param_ptr_->gw_;
+        // 式6.115
         H_x = A - A * u * (u.transpose() * u).inverse() * u.transpose();
+        // 式6.113 Ht = -Hp 也就是代码中的这行
         H_f = -H_x.block<2, 3>(0, 3);
 
         // Compute the residual.
@@ -318,4 +321,131 @@ private:
     std::map<int, double> chi_squared_test_table_;
     // 理解为一种特征管理，本质是一个map，key为特征点id，value为特征类
     MapServer map_server;
+};
+
+class ProjectionFactor : public ceres::SizedCostFunction<2, 3, 4, 3, 4, 1>
+{
+  public:
+    ProjectionFactor(
+        const Eigen::Vector3d &pts_i, const Eigen::Vector3d &pts_j,
+        const std::shared_ptr<Parameter> &param_ptr)
+        : pts_i_(pts_i), pts_j_(pts_j), param_ptr_(param_ptr)
+    {
+    }
+    virtual bool Evaluate(
+        double const *const *parameters, double *residuals, double **jacobians) const
+    {
+        // i帧旋转平移
+        Eigen::Vector3d Pi(parameters[0][0], parameters[0][1], parameters[0][2]);
+        Eigen::Quaterniond Qi(
+            parameters[1][3], parameters[1][0], parameters[1][1], parameters[1][2]);
+
+        // j帧旋转平移
+        Eigen::Vector3d Pj(parameters[2][0], parameters[2][1], parameters[2][2]);
+        Eigen::Quaterniond Qj(
+            parameters[3][3], parameters[3][0], parameters[3][1], parameters[3][2]);
+
+        // 对应点的逆深度
+        double inv_dep_i = parameters[4][0];
+
+        // pts_i_ pts_j_ 表示这对点在各自图像上归一化平面坐标
+        // 地图点在i帧相机坐标系下坐标
+        Eigen::Vector3d pts_camera_i = pts_i_ / inv_dep_i;
+        // 转成第i帧imu坐标系
+        Eigen::Vector3d pts_imu_i = param_ptr_->Rbc_ * pts_camera_i + param_ptr_->tbc_;
+        // 转成世界坐标系
+        Eigen::Vector3d pts_w = Qi * pts_imu_i + Pi;
+        // 转到第j帧imu坐标系
+        Eigen::Vector3d pts_imu_j = Qj.inverse() * (pts_w - Pj);
+        // 转到第j帧相机坐标系
+        Eigen::Vector3d pts_camera_j =
+            param_ptr_->Rbc_.inverse() * (pts_imu_j - param_ptr_->tbc_);
+        Eigen::Map<Eigen::Vector2d> residual(residuals);
+
+        // 第j帧相机系下深度
+        double dep_j = pts_camera_j.z();
+        // 重投影误差
+        residual = (pts_camera_j / dep_j).head<2>() - pts_j_.head<2>();
+        // 由于Ceres中没有像G2O那样明确的定义信息矩阵，因此需要将信息矩阵融于残差中
+        residual = sqrt_info * residual;
+
+        if (jacobians)
+        {
+            Eigen::Matrix3d Ri = Qi.toRotationMatrix();
+            Eigen::Matrix3d Rj = Qj.toRotationMatrix();
+            Eigen::Matrix3d Rbc = param_ptr_->Rbc_;
+            Eigen::Matrix<double, 2, 3> reduce(2, 3);
+
+            // 式6.186 重投影误差对j帧相机坐标系下坐标求导
+            reduce << 1. / dep_j, 0, -pts_camera_j(0) / (dep_j * dep_j),    
+                0, 1. / dep_j, -pts_camera_j(1) / (dep_j * dep_j);
+            // 由于Ceres中没有像G2O那样明确的定义信息矩阵，因此需要将信息矩阵融于雅可比矩阵中
+            reduce = sqrt_info * reduce;
+
+            // 0: 重投影误差相对于i帧时刻IMU平移的雅可比矩阵
+            if (jacobians[0])
+            {
+                Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>> J(jacobians[0]);
+                Eigen::Matrix<double, 3, 3> Jpt;
+                // 式6.187
+                Jpt = Rbc.transpose() * Rj.transpose();
+                // 式6.188
+                J = reduce * Jpt;
+            }
+
+            // 1: 重投影误差相对于i帧时刻IMU旋转的雅可比矩阵
+            if (jacobians[1])
+            {
+                Eigen::Map<Eigen::Matrix<double, 2, 4, Eigen::RowMajor>> J(jacobians[1]);
+
+                Eigen::Matrix<double, 3, 3> Jpr;
+                // 式6.187
+                Jpr = Rbc.transpose() * Rj.transpose() * Ri * -Converter::Skew(pts_imu_i);
+                // 式6.188
+                J.leftCols<3>() = reduce * Jpr;
+                J.rightCols<1>().setZero();
+            }
+
+            // 2: 重投影误差相对于j帧时刻IMU平移的雅可比矩阵
+            if (jacobians[2])
+            {
+                Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>> J(jacobians[2]);
+
+                Eigen::Matrix<double, 3, 3> Jpt;
+                // 式6.189
+                Jpt = Rbc.transpose() * -Rj.transpose();
+                // 式6.190
+                J = reduce * Jpt;
+            }
+
+            // 3: 重投影误差相对于j帧时刻IMU旋转的雅可比矩阵
+            if (jacobians[3])
+            {
+                Eigen::Map<Eigen::Matrix<double, 2, 4, Eigen::RowMajor>> J(jacobians[3]);
+
+                Eigen::Matrix<double, 3, 3> Jpr;
+                // 式6.189
+                Jpr = Rbc.transpose() * Converter::Skew(pts_imu_j);
+                // 式6.190
+                J.leftCols<3>() = reduce * Jpr;
+                J.rightCols<1>().setZero();
+            }
+
+            // 4: 重投影误差相对于点的逆深度的雅可比矩阵
+            if (jacobians[4])
+            {
+                Eigen::Map<Eigen::Vector2d> J(jacobians[4]);
+                // 式6.193
+                J = reduce * Rbc.transpose() * Rj.transpose() * Ri * Rbc *
+                    pts_i_ * -1.0 / (inv_dep_i * inv_dep_i);
+            }
+        }
+        return true;
+    }
+    // void check(double **parameters);
+
+    // 观测数据
+    Eigen::Vector3d pts_i_, pts_j_;
+    std::shared_ptr<Parameter> param_ptr_;
+    Eigen::Matrix2d sqrt_info = 640 / 1.5 * Eigen::Matrix2d::Identity();
 };
