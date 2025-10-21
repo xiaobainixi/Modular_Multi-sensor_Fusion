@@ -18,6 +18,11 @@ class Preintegration : public std::enable_shared_from_this<Preintegration>
 public:
     Preintegration() {}
 
+    virtual void Repropagate(const Eigen::Vector3d &new_ba, const Eigen::Vector3d &new_bg)
+    {
+        LOG(INFO) << "你不应该被执行的";
+    }
+
     virtual std::shared_ptr<State> predict(std::shared_ptr<State> state) {return nullptr;}
 
     std::shared_ptr<Parameter> param_ptr_;

@@ -111,7 +111,7 @@ bool CameraObserver::ComputeHZR(
         if (map_server.find(feature.id_) == map_server.end())
         {
             // This is a new feature.
-            map_server[feature.id_] = Feature(feature.id_, param_ptr_);
+            map_server[feature.id_] = MsckfFeature(feature.id_, param_ptr_);
             map_server[feature.id_].observations[cam_states_next_id_] = feature.point_;
         }
         else
@@ -230,10 +230,10 @@ bool CameraObserver::ComputeHZR(
             Eigen::MatrixXd H_xj;
             Eigen::VectorXd r_j;
             // 6.1 计算雅可比，计算重投影误差
-            featureJacobian(feature.id_, cam_state_ids, H_xj, r_j);
+            FeatureJacobian(feature.id_, cam_state_ids, H_xj, r_j);
 
             // 6.2 卡方检验，剔除错误点，并不是所有点都用
-            if (gatingTest(H_xj, r_j, cam_state_ids.size() - 1, state_ptr->C_))
+            if (GatingTest(H_xj, r_j, cam_state_ids.size() - 1, state_ptr->C_))
             {
                 H_x.block(stack_cntr, 0, H_xj.rows(), H_xj.cols()) = H_xj;
                 r.segment(stack_cntr, r_j.rows()) = r_j;
@@ -253,7 +253,7 @@ bool CameraObserver::ComputeHZR(
 
         // Perform the measurement update step.
         // 7. 使用误差及雅可比更新状态
-        measurementUpdate(H_x, r, state_ptr);
+        MeasurementUpdate(H_x, r, state_ptr);
 
         // Remove all processed features from the map.
         // 8. 删除用完的点
@@ -262,7 +262,7 @@ bool CameraObserver::ComputeHZR(
     }
 
     // 数量还不到该删的程度，配置文件里面是20个
-    if (state_manager_ptr_->cam_states_.size() >= 20) {
+    if (state_manager_ptr_->cam_states_.size() >= param_ptr_->WINDOW_SIZE) {
         // Find two camera states to be removed.
         // 1. 找出该删的相机状态的id，两个
         std::vector<int> rm_cam_state_ids(0);
@@ -428,9 +428,9 @@ bool CameraObserver::ComputeHZR(
             // 这个点假如有多个观测，但本次只用待删除帧上的观测
             Eigen::MatrixXd H_xj;
             Eigen::VectorXd r_j;
-            featureJacobian(feature.id_, involved_cam_state_ids, H_xj, r_j);
+            FeatureJacobian(feature.id_, involved_cam_state_ids, H_xj, r_j);
 
-            if (gatingTest(H_xj, r_j, involved_cam_state_ids.size(), state_ptr->C_))
+            if (GatingTest(H_xj, r_j, involved_cam_state_ids.size(), state_ptr->C_))
             {
                 H_x.block(stack_cntr, 0, H_xj.rows(), H_xj.cols()) = H_xj;
                 r.segment(stack_cntr, r_j.rows()) = r_j;
@@ -447,7 +447,7 @@ bool CameraObserver::ComputeHZR(
 
         // Perform measurement update.
         // 4. 用待删去的这些观测更新一下
-        measurementUpdate(H_x, r, state_ptr);
+        MeasurementUpdate(H_x, r, state_ptr);
 
         // 5. 直接删掉对应的行列，直接干掉
         // 为啥没有做类似于边缘化的操作？

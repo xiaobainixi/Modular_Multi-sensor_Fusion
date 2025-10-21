@@ -39,6 +39,9 @@ public:
     bool ReadGNSS(const std::string & path);
     bool ReadImage(const std::string & path);
 
+    bool ReadEurocIMU(const std::string & path);
+    bool ReadEurocImage(const std::string & path);
+
     InputData GetNextData();
 private:
     std::shared_ptr<Parameter> param_ptr_;

@@ -12,6 +12,12 @@
 #include "StateManager.h"
 #include "Converter.h"
 #include "CooTrans.h"
+#include "visual/VinsFeatureManager.h"
+#include "predictor/IMUPredictor.h"
+
+#include "Solve5pts.h"
+#include "InitialSFM.h"
+#include "InitialAlignment.h"
 
 // 零速阈值, rad/s, m/s^2
 static constexpr double ZERO_VELOCITY_GYR_THRESHOLD = 0.002;
@@ -22,11 +28,18 @@ class Initializers {
 public:
     Initializers(std::shared_ptr<Parameter> param_ptr, std::shared_ptr<DataManager> data_manager_ptr,
         const std::shared_ptr<CooTrans> &coo_trans_ptr,
-        std::shared_ptr<StateManager> state_manager_ptr) {
+        std::shared_ptr<StateManager> state_manager_ptr,
+        std::shared_ptr<Viewer> viewer_ptr = nullptr) {
         param_ptr_ = param_ptr;
         data_manager_ptr_ = data_manager_ptr;
         state_manager_ptr_ = state_manager_ptr;
         coo_trans_ptr_ = coo_trans_ptr;
+        if (param_ptr->use_camera_) {
+            // 只有纯IMU模式下才会用到视觉初始化，因为只有他使用了加速度计
+            predictor_ptr_ = std::make_shared<IMUPredictor>(
+                state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr);
+            vins_feature_manager_ptr_ = std::make_shared<VinsFeatureManager>(param_ptr_, viewer_ptr);
+        }
     }
 
     bool Initialization() {
@@ -234,20 +247,303 @@ private:
     }
 
     bool VisualInitialization() {
-        LOG(INFO) << "视觉惯性初始化完毕";
+        if (param_ptr_->state_type_ != 0) {
+            LOG(INFO) << "无需视觉惯性初始化";
+            return true;
+        }
+
+        std::shared_ptr<State> last_state;
+        FeatureData feature_data;
+        if (data_manager_ptr_->GetNewFeatureData(feature_data, last_feature_data_.time_))
+        {
+            if(!state_manager_ptr_->GetNearestState(last_state)) {
+                // 第一帧
+                std::shared_ptr<State> cur_state_ptr = std::make_shared<State>();
+                cur_state_ptr->time_ = feature_data.time_;
+                state_manager_ptr_->PushState(cur_state_ptr);
+                vins_feature_manager_ptr_->addFeatureCheckParallax(
+                    0, feature_data.features_, cur_state_ptr);
+                return false;
+            }
+
+            double dt = std::abs(last_state->time_ - feature_data.time_);
+            if (dt > 0.1)
+            {
+                std::vector<IMUData> datas;
+                data_manager_ptr_->GetDatasBetween(datas, last_state->time_, feature_data.time_);
+                std::vector<double> average;
+                // LOG(INFO) << "Visual Initialization between " << std::to_string(last_state->time_) 
+                //     << " and " << std::to_string(feature_data.time_) << " with dt " << std::to_string(dt)
+                //     << " and IMU datas " << std::to_string(datas.size());
+                if (datas.empty() || DetectZeroVelocity(datas, average)) {
+                    ResetVisualInitialization();
+                    return false;
+                }
+                auto preint = predictor_ptr_->CreatePreintegration(
+                    last_state->time_, feature_data.time_,
+                    last_state->ba_, last_state->bg_);
+                std::shared_ptr<State> new_state = preint->predict(last_state);
+                last_state = new_state;
+
+                int start_frame_idx = state_manager_ptr_->GetAllStates().size();
+                vins_feature_manager_ptr_->addFeatureCheckParallax(
+                    start_frame_idx, feature_data.features_, last_state);
+                state_manager_ptr_->PushState(new_state);
+                last_state->feature_data_ = feature_data;
+            }
+            
+            last_feature_data_ = feature_data;
+        }
+
+        if (state_manager_ptr_->GetAllStates().size() >= param_ptr_->WINDOW_SIZE) {
+            LOG(INFO) << "凑够了初始化帧数";
+            if (InitialStructure()) {
+                LOG(INFO) << "视觉惯性初始化完毕";
+                return true;
+            } else {
+                ResetVisualInitialization();
+                return false;
+            }
+        } else {
+           return false; 
+        }
+    }
+
+    /**
+     * @brief VIO初始化，将滑窗中的P V Q恢复到第0帧并且和重力对齐
+     * 
+     * @return true 
+     * @return false 
+     */
+    bool InitialStructure()
+    {
+        // 这里与VINS不同在于使用了所有关键帧做，普通帧不考虑，因为前面做了0速检测
+        std::map<double, ImageFrame> all_image_frame;
+        auto all_states = state_manager_ptr_->GetAllStates();
+        int frame_count = all_states.size();
+        for (int i = 0; i < frame_count; i++)
+        {
+
+            ImageFrame imageframe(
+                all_states[i]->feature_data_.features_, all_states[i]->time_);
+            imageframe.pre_integration =
+                dynamic_cast<IMUPreintegration*>(all_states[i]->preint_.get());
+            // 这里就是简单的把图像和预积分绑定在一起，这里预积分就是两帧之间的，滑窗中实际上是两个KF之间的
+            // 实际上是准备用来初始化的相关数据
+            all_image_frame.insert(std::make_pair(all_states[i]->time_, imageframe));
+        }
+
+        // Step 1 check imu observibility
+        // Step 2 global sfm
+        // 做一个纯视觉slam
+        Eigen::Quaterniond Q[frame_count];
+        Eigen::Vector3d T[frame_count];
+        std::map<int, Eigen::Vector3d> sfm_tracked_points;
+        std::vector<SFMFeature> sfm_f;   // 保存每个特征点的信息
+        // 遍历所有的特征点
+        for (auto &it_per_id : vins_feature_manager_ptr_->feature)
+        {
+            int imu_j = it_per_id.start_frame - 1;  // 这个跟imu无关，就是存储观测特征点的帧的索引
+            SFMFeature tmp_feature; // 用来后续做sfm
+            tmp_feature.state = false;
+            tmp_feature.id = it_per_id.feature_id;
+            for (auto &it_per_frame : it_per_id.feature_per_frame)
+            {
+                imu_j++;
+                Eigen::Vector3d pts_j = it_per_frame.point;
+                // 索引以及各自坐标系下的坐标
+                tmp_feature.observation.push_back(std::make_pair(imu_j, Eigen::Vector2d{pts_j.x(), pts_j.y()}));
+            }
+            sfm_f.push_back(tmp_feature);
+        } 
+        Eigen::Matrix3d relative_R;
+        Eigen::Vector3d relative_T;
+        int l;
+        if (!RelativePose(relative_R, relative_T, l))
+        {
+            LOG(INFO) << "Not enough features or parallax; Move device around";
+            return false;
+        }
+        GlobalSFM sfm;
+        // 进行sfm的求解
+        if(!sfm.construct(frame_count, Q, T, l,
+                relative_R, relative_T,
+                sfm_f, sfm_tracked_points))
+        {
+            LOG(INFO) << "global SFM failed!";
+            return false;
+        }
+
+        // Step 3 solve pnp for all frame
+        // step2只是针对KF进行sfm，初始化需要all_image_frame中的所有元素，因此下面通过KF来求解其他的非KF的位姿
+        for (int i = 0; i < frame_count; i++)
+        {
+            double time = all_states[i]->time_;
+            all_image_frame[time].R = Q[i].toRotationMatrix();
+            all_image_frame[time].T = T[i];
+        }
+
+        // 到此就求解出用来做视觉惯性对齐的所有视觉帧的位姿
+        // Step 4 视觉惯性对齐
+        Eigen::VectorXd x;
+        Eigen::Vector3d g;
+        Eigen::Vector3d Ps[frame_count];
+        Eigen::Vector3d Vs[frame_count];
+        Eigen::Matrix3d Rs[frame_count];
+        // Eigen::Vector3d Bas[frame_count];
+        Eigen::Vector3d Bgs[frame_count];
+        //solve scale
+        bool result = VisualIMUAlignment(
+            param_ptr_, all_image_frame, Bgs, g, x);
+        if(!result)
+        {
+            LOG(INFO) << "solve g failed!";
+            return false;
+        }
+
+        // change state
+        // 首先把对齐后KF的位姿附给滑窗中的值，Rwi twc
+        for (int i = 0; i <= frame_count; i++)
+        {
+            Eigen::Matrix3d Ri = all_image_frame[all_states[i]->time_].R;
+            Eigen::Vector3d Pi = all_image_frame[all_states[i]->time_].T;
+            Ps[i] = Pi;
+            Rs[i] = Ri;
+            all_image_frame[all_states[i]->time_].is_key_frame = true;
+        }
+
+        VectorXd dep = vins_feature_manager_ptr_->getDepthVector();  // 根据有效特征点数初始化这个动态向量
+        for (int i = 0; i < dep.size(); i++)
+            dep[i] = -1;    // 深度预设都是-1
+        vins_feature_manager_ptr_->clearDepth(dep);  // 特征管理器把所有的特征点逆深度也设置为-1
+
+        //triangulat on cam pose , no tic
+        Eigen::Vector3d TIC_TMP[1];
+        Eigen::Matrix3d RIC[1];
+        for(int i = 0; i < 1; i++) {
+            TIC_TMP[i].setZero();
+            RIC[i] = param_ptr_->Rbc_;
+        }
+        // 多约束三角化所有的特征点，注意，仍带是尺度模糊的
+        vins_feature_manager_ptr_->triangulate(Ps, Rs, &(TIC_TMP[0]), &(RIC[0]));
+
+        double s = (x.tail<1>())(0);
+        // 将滑窗中的预积分重新计算
+        for (int i = 0; i <= param_ptr_->WINDOW_SIZE; i++)
+        {
+            all_states[i]->preint_->Repropagate(Vector3d::Zero(), Bgs[i]);
+        }
+        // 下面开始把所有的状态对齐到第0帧的imu坐标系
+        for (int i = frame_count; i >= 0; i--)
+            // twi - tw0 = toi,就是把所有的平移对齐到滑窗中的第0帧
+            Ps[i] = s * Ps[i] - Rs[i] * param_ptr_->tbc_ - (s * Ps[0] - Rs[0] * param_ptr_->tbc_);
+        int kv = -1;
+        map<double, ImageFrame>::iterator frame_i;
+        // 把求解出来KF的速度赋给滑窗中
+        for (frame_i = all_image_frame.begin(); frame_i != all_image_frame.end(); frame_i++)
+        {
+            if(frame_i->second.is_key_frame)
+            {
+                kv++;
+                // 当时求得速度是imu系，现在转到world系
+                Vs[kv] = frame_i->second.R * x.segment<3>(kv * 3);
+            }
+        }
+        // 把尺度模糊的3d点恢复到真实尺度下
+        for (auto &it_per_id : vins_feature_manager_ptr_->feature)
+        {
+            it_per_id.used_num = it_per_id.feature_per_frame.size();
+            if (!(it_per_id.used_num >= 2 && it_per_id.start_frame < param_ptr_->WINDOW_SIZE - 2))
+                continue;
+            it_per_id.estimated_depth *= s;
+        }
+        // 所有的P V Q全部对齐到第0帧的，同时和对齐到重力方向
+        Eigen::Matrix3d R0 = Converter::g2R(g);  // g是枢纽帧下的重力方向，得到R_w_j
+        double yaw = Converter::R2ypr(R0 * Rs[0]).x();    // Rs[0]实际上是R_j_0
+        R0 = Converter::ypr2R(Eigen::Vector3d{-yaw, 0, 0}) * R0;  // 第一帧yaw赋0
+        g = R0 * g;
+        //Eigen::Matrix3d rot_diff = R0 * Rs[0].transpose();
+        Eigen::Matrix3d rot_diff = R0;
+        for (int i = 0; i <= frame_count; i++)
+        {
+            Ps[i] = rot_diff * Ps[i];
+            Rs[i] = rot_diff * Rs[i];   // 全部对齐到重力下，同时yaw角对齐到第一帧
+            Vs[i] = rot_diff * Vs[i];
+        }
+        LOG(INFO) << "g0     " << g.transpose();
+        LOG(INFO) << "my R0  " << Converter::R2ypr(Rs[0]).transpose();
         return true;
+    }
+
+    /**
+     * @brief 寻找滑窗内一个帧作为枢纽帧，要求和最后一帧既有足够的共视也要有足够的视差
+     *        这样其他帧都对齐到这个枢纽帧上
+     *        得到T_l_last
+     * @param[in] relative_R 
+     * @param[in] relative_T 
+     * @param[in] l 
+     * @return true 
+     * @return false 
+     */
+
+    bool RelativePose(Matrix3d &relative_R, Vector3d &relative_T, int &l)
+    {
+        MotionEstimator m_estimator;
+        // find previous frame which contians enough correspondance and parallex with newest frame
+        // 优先从最前面开始
+        for (int i = 0; i < param_ptr_->WINDOW_SIZE - 1; i++)
+        {
+            vector<pair<Vector3d, Vector3d>> corres;
+            corres = vins_feature_manager_ptr_->getCorresponding(i, param_ptr_->WINDOW_SIZE - 1);
+            // LOG(INFO) << "frame " << i << " to newest frame has correspondance " << corres.size();
+            // 要求共视的特征点足够多
+            if (corres.size() > 20)
+            {
+                double sum_parallax = 0;
+                double average_parallax;
+                for (int j = 0; j < int(corres.size()); j++)
+                {
+                    Vector2d pts_0(corres[j].first(0), corres[j].first(1));
+                    Vector2d pts_1(corres[j].second(0), corres[j].second(1));
+                    double parallax = (pts_0 - pts_1).norm();   // 计算了视差
+                    sum_parallax = sum_parallax + parallax;
+
+                }
+                // 计算每个特征点的平均视差
+                average_parallax = 1.0 * sum_parallax / int(corres.size());
+                // LOG(INFO) << "find frame " << i << " has enough correspondance " << corres.size()
+                //           << " average parallax " << average_parallax * 460;
+                // 有足够的视差在通过本质矩阵恢复第i帧和最后一帧之间的 R t T_i_last
+                if(average_parallax * 460 > 30 && m_estimator.solveRelativeRT(corres, relative_R, relative_T))
+                {
+                    l = i;
+                    LOG(INFO) << "average_parallax " << average_parallax * 460 << " choose l " << l <<
+                        " and newest frame to triangulate the whole structure";
+                    LOG(INFO) << "relative_R: " << std::endl << relative_R << std::endl <<  relative_T.transpose();
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    void ResetVisualInitialization() {
+        state_manager_ptr_->Reset();
+        vins_feature_manager_ptr_->clearState();
+        last_feature_data_.time_ = -1.0;
     }
 
     std::shared_ptr<DataManager> data_manager_ptr_;
     std::shared_ptr<StateManager> state_manager_ptr_;
+    std::shared_ptr<Predictor> predictor_ptr_;
+    std::shared_ptr<VinsFeatureManager> vins_feature_manager_ptr_;
     std::mutex states_mtx_;
     std::shared_ptr<Parameter> param_ptr_;
 
     // tmp data
     GNSSData last_gnss_data_;
     // WheelData last_wheel_data_;
-    // FeatureData last_feature_data_;
-
+    FeatureData last_feature_data_;
 
     std::shared_ptr<CooTrans> coo_trans_ptr_;
 

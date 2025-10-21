@@ -168,6 +168,11 @@ public:
             data_path_ = node.string();
         LOG(INFO) << "data folder: " << data_path_;
 
+        node = f_settings["data_type"];
+        if (!node.empty() && node.isString())
+            data_type_ = node.string();
+        LOG(INFO) << "data type: " << data_type_;
+
         if (!use_imu_ && wheel_use_type_ != 1)
         {
             LOG(ERROR) << "至少选择一个传感器作为预测";
@@ -254,6 +259,9 @@ public:
         // node = f_settings["camera_k3"];
         // if (!node.empty() && node.isReal())
         //     cam_distortion_coeffs_ = node.real();
+
+        MIN_PARALLAX = f_settings["keyframe_parallax"]; // 根据视差确定关键帧
+        MIN_PARALLAX = MIN_PARALLAX / FOCAL_LENGTH;
     }
 
     void ConfigureStatusDim(int type)
@@ -266,7 +274,7 @@ public:
 
     // 0 for kf 1 for ba
     int fusion_model_ = 0;
-    bool use_imu_ = true;
+    bool use_imu_ = false;
     // 0 unused 1 predict 2 obs
     int wheel_use_type_ = 0;
     bool gnss_wheel_align_ = false;
@@ -303,6 +311,7 @@ public:
     bool fix_yz_in_eskf_ = false;
 
     // Camera
+    int WINDOW_SIZE = 20;
     MSCKFOptimizationConfig msckf_optimization_config_;
     double visual_observation_noise_ = 0.01;
     std::string cam_distortion_model_;
@@ -312,9 +321,14 @@ public:
     Eigen::Matrix3d Rbc_;
     Eigen::Vector3d tbc_;
 
+    // VINS
+    const double FOCAL_LENGTH = 460.0;
+    double MIN_PARALLAX;
+
     // dataloader
     double play_speed_ = 6.0;
     std::string data_path_ = "../data/";
+    std::string data_type_ = " ";
 
 
     double g_ = 9.81;

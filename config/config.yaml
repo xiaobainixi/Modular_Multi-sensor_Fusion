@@ -1,18 +1,18 @@
 %YAML:1.0
 
 # 0 kf 1 ba
-fusion_model: 1
+fusion_model: 0
 
 # predict type
 use_imu: 1
 # 0 not use 1 predict 2 obs
-wheel_use_type: 2
+wheel_use_type: 0
 
 # obs type
 # gnss与轮速做时间对齐后一起更新，否则为分开更新
 gnss_wheel_align: 1
-use_gnss: 1
-use_camera: 0
+use_gnss: 0
+use_camera: 1
 
 # sensor conv
 gyro_noise: 1e-05 # 100hz
@@ -50,6 +50,8 @@ camera_k2: 1.3952563200000001e-01
 camera_p1: -1.2155906999999999e-03
 camera_p2: -9.7281389999999998e-04
 camera_k3: 0.0
+
+keyframe_parallax: 10.0
 
 Rbc: !!opencv-matrix
    rows: 3

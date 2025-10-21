@@ -1,7 +1,6 @@
 #pragma once
 #include "Filter.h"
 
-FeatureIDType Feature::next_id = 0;
 void Filter::ESKFUpdate(
     const Eigen::MatrixXd & H, const Eigen::MatrixXd & C, const Eigen::MatrixXd & R,
     Eigen::MatrixXd & Z, Eigen::MatrixXd & C_new, Eigen::VectorXd & X)

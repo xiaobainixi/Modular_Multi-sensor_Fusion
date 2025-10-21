@@ -15,24 +15,24 @@ typedef std::map<int, std::shared_ptr<CamState>, std::less<int>,
     CamStateServer;
 
 /**
- * @brief Feature Salient part of an image. Please refer
+ * @brief MsckfFeature Salient part of an image. Please refer
  *    to the Appendix of "A Multi-State Constraint Kalman
  *    Filter for Vision-aided Inertial Navigation" for how
  *    the 3d position of a feature is initialized.
  * 一个特征可以理解为一个三维点，由多帧观测到
  */
-struct Feature
+struct MsckfFeature
 {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     typedef long long int FeatureIDType;
 
 
     // Constructors for the struct.
-    Feature()
+    MsckfFeature()
         : id_(0), position(Eigen::Vector3d::Zero()),
           is_initialized(false) {}
 
-    Feature(const FeatureIDType &new_id, std::shared_ptr<Parameter> param_ptr)
+    MsckfFeature(const FeatureIDType &new_id, std::shared_ptr<Parameter> param_ptr)
         : id_(new_id),
           position(Eigen::Vector3d::Zero()),
           param_ptr_(param_ptr),
@@ -112,7 +112,7 @@ struct Feature
     FeatureIDType id_;
 
     // id for next feature
-    static FeatureIDType next_id;
+    // static FeatureIDType next_id;
 
     // Store the observations of the features in the
     // state_id(key)-image_coordinates(value) manner.
@@ -131,9 +131,9 @@ struct Feature
     std::shared_ptr<Parameter> param_ptr_;
 };
 
-typedef Feature::FeatureIDType FeatureIDType;
-typedef std::map<FeatureIDType, Feature, std::less<int>,
-                 Eigen::aligned_allocator<std::pair<const FeatureIDType, Feature>>>
+typedef MsckfFeature::FeatureIDType FeatureIDType;
+typedef std::map<FeatureIDType, MsckfFeature, std::less<int>,
+                 Eigen::aligned_allocator<std::pair<const FeatureIDType, MsckfFeature>>>
     MapServer;
 
 /**
@@ -141,7 +141,7 @@ typedef std::map<FeatureIDType, Feature, std::less<int>,
  * @param cam_states 所有参与计算的相机位姿
  * @return 是否有足够视差
  */
-bool Feature::checkMotion(
+bool MsckfFeature::checkMotion(
     const CamStateServer &cam_states) const
 {
     // 1. 取出对应的始末帧id
@@ -211,7 +211,7 @@ bool Feature::checkMotion(
  * @param cam_states 所有参与计算的相机位姿
  * @return 是否三角化成功
  */
-bool Feature::initializePosition(
+bool MsckfFeature::initializePosition(
     const CamStateServer &cam_states)
 {
     // Organize camera poses and feature observations properly.
@@ -417,7 +417,7 @@ bool Feature::initializePosition(
  * @param z ci下的观测归一化坐标
  * @param e 误差
  */
-void Feature::cost(
+void MsckfFeature::cost(
     const Eigen::Isometry3d &T_c0_ci,
     const Eigen::Vector3d &x, const Eigen::Vector2d &z,
     double &e) const
@@ -458,7 +458,7 @@ void Feature::cost(
  * @param w 权重
  * @return 是否三角化成功
  */
-void Feature::jacobian(
+void MsckfFeature::jacobian(
     const Eigen::Isometry3d &T_c0_ci,
     const Eigen::Vector3d &x, const Eigen::Vector2d &z,
     Eigen::Matrix<double, 2, 3> &J, Eigen::Vector2d &r,
@@ -531,7 +531,7 @@ void Feature::jacobian(
  * @param z2 观测2 都是归一化坐标
  * @param p 三位点坐标
  */
-void Feature::generateInitialGuess(
+void MsckfFeature::generateInitialGuess(
     const Eigen::Isometry3d &T_c1_c2, const Eigen::Vector2d &z1,
     const Eigen::Vector2d &z2, Eigen::Vector3d &p) const
 {

@@ -44,7 +44,8 @@ public:
         }
 
 
-        initializers_ptr_ = std::make_shared<Initializers>(param_ptr, data_manager_ptr, coo_trans_ptr_, state_manager_ptr);
+        initializers_ptr_ = std::make_shared<Initializers>(
+            param_ptr, data_manager_ptr, coo_trans_ptr_, state_manager_ptr);
         run_thread_ptr_ = std::make_shared<std::thread>(&Filter::Run, this);
     }
 

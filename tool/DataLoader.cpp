@@ -3,10 +3,15 @@
 DataLoader::DataLoader(const std::shared_ptr<Parameter> & param_ptr) {
     param_ptr_ = param_ptr;
     std::cout << "data path: " << param_ptr_->data_path_ << std::endl;
-    ReadIMU(param_ptr_->data_path_ + "/imu.txt");
-    ReadGNSS(param_ptr_->data_path_ + "/gnss.txt");
-    ReadWheel(param_ptr_->data_path_ + "/encoder.txt");
-    ReadImage(param_ptr_->data_path_ + "/image.txt");
+    if (param_ptr->data_type_ == "euroc") {
+        ReadEurocIMU(param_ptr_->data_path_ + "mav0/imu0/data.csv");
+        ReadEurocImage(param_ptr_->data_path_ + "mav0/cam0/data.csv");
+    } else {
+        ReadIMU(param_ptr_->data_path_ + "/imu.txt");
+        ReadGNSS(param_ptr_->data_path_ + "/gnss.txt");
+        ReadWheel(param_ptr_->data_path_ + "/encoder.txt");
+        ReadImage(param_ptr_->data_path_ + "/image.txt");
+    }
 
     while (!gnss_datas_.empty() || !imu_datas_.empty() || !wheel_datas_.empty() || !image_datas_.empty()) {
         double gnss_time = !gnss_datas_.empty() ? gnss_datas_.front().time_ : DBL_MAX;
@@ -61,7 +66,7 @@ bool DataLoader::ReadIMU(const std::string & path)
 
     if (!imu_file.is_open())
     {
-        std::cerr << "failure to open gnss file: " << path << std::endl;
+        std::cerr << "failure to open imu file: " << path << std::endl;
         return false;
     }
 
@@ -213,7 +218,7 @@ bool DataLoader::ReadImage(const std::string & path) {
 
     if (!img_file.is_open())
     {
-        std::cerr << "failure to open wheel file: " << path << std::endl;
+        std::cerr << "failure to open image file: " << path << std::endl;
         return false;
     }
 
@@ -238,5 +243,98 @@ bool DataLoader::ReadImage(const std::string & path) {
     }
     img_file.close();
     LOG(INFO) << "image data size: " << image_datas_.size() << std::endl;
+    return true;
+}
+
+bool DataLoader::ReadEurocImage(const std::string & path) {
+    std::ifstream img_file(path, std::ios::in);
+    if (!img_file.is_open()) {
+        std::cerr << "failure to open image file: " << path << std::endl;
+        return false;
+    }
+
+    std::string line;
+    // 跳过表头: #timestamp [ns],filename
+    if (std::getline(img_file, line)) {}
+
+    while (std::getline(img_file, line)) {
+        if (line.empty()) continue;
+        std::stringstream ss(line);
+        std::string ts_str, file_str;
+        std::getline(ss, ts_str, ',');
+        std::getline(ss, file_str, ',');
+        if (ts_str.empty() || file_str.empty()) continue;
+
+        // 去除可能的回车/空格
+        file_str.erase(
+            std::remove_if(file_str.begin(), file_str.end(),
+                           [](unsigned char c){ return c == '\r' || c == '\n' || std::isspace(c); }),
+            file_str.end());
+
+        // Euroc时间戳是纳秒
+        long long ts_ns = std::stoll(ts_str);
+        double t_sec = static_cast<double>(ts_ns) * 1e-9;
+
+        InputData data;
+        data.time_ = t_sec;
+        data.data_type_ = 3;
+        data.img_path_ = param_ptr_->data_path_ + "/mav0/cam0/data/" + file_str; // 文件名如 1403636579763555584.png
+        image_datas_.push(data);
+    }
+    img_file.close();
+    LOG(INFO) << "image data size: " << image_datas_.size() << std::endl;
+    return true;
+}
+
+bool DataLoader::ReadEurocIMU(const std::string & path)
+{
+    std::ifstream imu_file(path, std::ios::in);
+    if (!imu_file.is_open()) {
+        std::cerr << "failure to open imu file: " << path << std::endl;
+        return false;
+    }
+
+    std::string line;
+    // 跳过表头
+    if (std::getline(imu_file, line)) {
+        // 例如: #timestamp [ns],w_RS_S_x...
+    }
+
+    while (std::getline(imu_file, line)) {
+        if (line.empty()) continue;
+        if (line[0] == '#') continue;
+
+        std::stringstream ss(line);
+        std::string ts_str;
+        std::string wx_str, wy_str, wz_str;
+        std::string ax_str, ay_str, az_str;
+
+        // 期望 7 个字段
+        if (!std::getline(ss, ts_str, ',')) continue;
+        if (!std::getline(ss, wx_str, ',')) continue;
+        if (!std::getline(ss, wy_str, ',')) continue;
+        if (!std::getline(ss, wz_str, ',')) continue;
+        if (!std::getline(ss, ax_str, ',')) continue;
+        if (!std::getline(ss, ay_str, ',')) continue;
+        if (!std::getline(ss, az_str, ',')) continue;
+
+        // 时间戳 ns -> s
+        long long ts_ns = std::stoll(ts_str);
+        double t_sec = static_cast<double>(ts_ns) * 1e-9;
+
+        InputData data;
+        data.time_ = t_sec;
+        data.data_type_ = 0;
+        data.w_.x() = std::stod(wx_str);
+        data.w_.y() = std::stod(wy_str);
+        data.w_.z() = std::stod(wz_str);
+        data.a_.x() = std::stod(ax_str);
+        data.a_.y() = std::stod(ay_str);
+        data.a_.z() = std::stod(az_str);
+
+        imu_datas_.push(data);
+    }
+    imu_file.close();
+    LOG(INFO) << "imu data size: " << imu_datas_.size();
     return true;
 }

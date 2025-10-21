@@ -38,9 +38,9 @@ bool QLocalParameterization::ComputeJacobian(const double *x, double *jacobian) 
 void Optimizer::SlideWindow()
 {
     std::vector<std::shared_ptr<State>> window_states = state_manager_ptr_->GetAllStates();
-    if (window_states.size() <= 20)
+    if (window_states.size() <= param_ptr_->WINDOW_SIZE)
         return;
-    size_t num_marg = window_states.size() - 20;
+    size_t num_marg = window_states.size() - param_ptr_->WINDOW_SIZE;
     std::shared_ptr<MarginalizationInfo> marginalization_info = std::make_shared<MarginalizationInfo>();
 
     // 指定每个参数块独立的ID, 用于索引参数
@@ -62,7 +62,7 @@ void Optimizer::SlideWindow()
         for (size_t i = 0; i < window_states.size(); ++i)
         {
             // IMU模式
-            if (preintegration_type_ == 0)
+            if (param_ptr_->state_type_ == 0)
             {
                 parameters_ids[reinterpret_cast<long>(window_states[i]->twb_.data())] = parameters_id++;
                 parameters_ids[reinterpret_cast<long>(window_states[i]->Rwb_.coeffs().data())] = parameters_id++;
@@ -71,13 +71,13 @@ void Optimizer::SlideWindow()
                 parameters_ids[reinterpret_cast<long>(window_states[i]->bg_.data())] = parameters_id++;
             }
             // 轮速计模式
-            else if (preintegration_type_ == 1)
+            else if (param_ptr_->state_type_ == 1)
             {
                 parameters_ids[reinterpret_cast<long>(window_states[i]->twb_.data())] = parameters_id++;
                 parameters_ids[reinterpret_cast<long>(window_states[i]->Rwb_.coeffs().data())] = parameters_id++;
             }
             // IMU+轮速计模式
-            else if (preintegration_type_ == 2)
+            else if (param_ptr_->state_type_ == 2)
             {
                 parameters_ids[reinterpret_cast<long>(window_states[i]->twb_.data())] = parameters_id++;
                 parameters_ids[reinterpret_cast<long>(window_states[i]->Rwb_.coeffs().data())] = parameters_id++;
@@ -123,16 +123,16 @@ void Optimizer::SlideWindow()
             for (size_t k = 0; k < last_marginalization_parameter_blocks_.size(); k++)
             {
                 // 用当前窗口状态的参数指针进行匹配
-                if ((preintegration_type_ == 0 &&
+                if ((param_ptr_->state_type_ == 0 &&
                     (last_marginalization_parameter_blocks_[k] == window_states[i]->twb_.data() ||
                     last_marginalization_parameter_blocks_[k] == window_states[i]->Rwb_.coeffs().data() ||
                     last_marginalization_parameter_blocks_[k] == window_states[i]->Vw_.data() ||
                     last_marginalization_parameter_blocks_[k] == window_states[i]->ba_.data() ||
                     last_marginalization_parameter_blocks_[k] == window_states[i]->bg_.data()))
-                || (preintegration_type_ == 1 &&
+                || (param_ptr_->state_type_ == 1 &&
                     (last_marginalization_parameter_blocks_[k] == window_states[i]->twb_.data() ||
                     last_marginalization_parameter_blocks_[k] == window_states[i]->Rwb_.coeffs().data()))
-                || (preintegration_type_ == 2 &&
+                || (param_ptr_->state_type_ == 2 &&
                     (last_marginalization_parameter_blocks_[k] == window_states[i]->twb_.data() ||
                     last_marginalization_parameter_blocks_[k] == window_states[i]->Rwb_.coeffs().data() ||
                     last_marginalization_parameter_blocks_[k] == window_states[i]->bg_.data())))
@@ -177,7 +177,7 @@ void Optimizer::SlideWindow()
         // 预积分因子
         std::vector<int> marg_index;
         auto preint_ptr = window_states[i + 1]->preint_;
-        if (preintegration_type_ == 0) // IMU
+        if (param_ptr_->state_type_ == 0) // IMU
         {
             if (i == (num_marg - 1))
             {
@@ -198,7 +198,7 @@ void Optimizer::SlideWindow()
                 marg_index);
             marginalization_info->addResidualBlockInfo(residual);
         }
-        else if (preintegration_type_ == 1) // 轮速计
+        else if (param_ptr_->state_type_ == 1) // 轮速计
         {
             if (i == (num_marg - 1))
             {
@@ -217,7 +217,7 @@ void Optimizer::SlideWindow()
                 marg_index);
             marginalization_info->addResidualBlockInfo(residual);
         }
-        else if (preintegration_type_ == 2) // IMU+轮速计
+        else if (param_ptr_->state_type_ == 2) // IMU+轮速计
         {
             if (i == (num_marg - 1))
             {
@@ -316,7 +316,7 @@ void Optimizer::SlideWindow()
     for (size_t k = num_marg; k < window_states.size(); k++)
     {
         // IMU模式
-        if (preintegration_type_ == 0)
+        if (param_ptr_->state_type_ == 0)
         {
             address[parameters_ids[reinterpret_cast<long>(window_states[k]->twb_.data())]] = window_states[k]->twb_.data();
             address[parameters_ids[reinterpret_cast<long>(window_states[k]->Rwb_.coeffs().data())]] = window_states[k]->Rwb_.coeffs().data();
@@ -325,13 +325,13 @@ void Optimizer::SlideWindow()
             address[parameters_ids[reinterpret_cast<long>(window_states[k]->bg_.data())]] = window_states[k]->bg_.data();
         }
         // 轮速计模式
-        else if (preintegration_type_ == 1)
+        else if (param_ptr_->state_type_ == 1)
         {
             address[parameters_ids[reinterpret_cast<long>(window_states[k]->twb_.data())]] = window_states[k]->twb_.data();
             address[parameters_ids[reinterpret_cast<long>(window_states[k]->Rwb_.coeffs().data())]] = window_states[k]->Rwb_.coeffs().data();
         }
         // IMU+轮速计模式
-        else if (preintegration_type_ == 2)
+        else if (param_ptr_->state_type_ == 2)
         {
             address[parameters_ids[reinterpret_cast<long>(window_states[k]->twb_.data())]] = window_states[k]->twb_.data();
             address[parameters_ids[reinterpret_cast<long>(window_states[k]->Rwb_.coeffs().data())]] = window_states[k]->Rwb_.coeffs().data();
@@ -445,7 +445,7 @@ void Optimizer::Optimization()
     {
         auto state_i = window_states[i - 1];
         auto state_j = window_states[i];
-        if (preintegration_type_ == 0)
+        if (param_ptr_->state_type_ == 0)
         {
             std::shared_ptr<IMUPreintegration> preint_ptr =
                 std::dynamic_pointer_cast<IMUPreintegration>(window_states[i]->preint_);
@@ -465,7 +465,7 @@ void Optimizer::Optimization()
             //               << " min: " << preint_ptr->covariance_.minCoeff();
             // }
         }
-        else if (preintegration_type_ == 1)
+        else if (param_ptr_->state_type_ == 1)
         {
             // 仅轮速计
             std::shared_ptr<WheelPreintegration> preint_ptr =
@@ -475,7 +475,7 @@ void Optimizer::Optimization()
                 state_i->twb_.data(), state_i->Rwb_.coeffs().data(),
                 state_j->twb_.data(), state_j->Rwb_.coeffs().data());
         }
-        else if (preintegration_type_ == 2)
+        else if (param_ptr_->state_type_ == 2)
         {
             // imu+轮速计
             std::shared_ptr<WheelIMUPreintegration> preint_ptr =
@@ -558,14 +558,19 @@ void Optimizer::Run()
         {
             if (initializers_ptr_->Initialization())
                 initialized_ = true;
-            else
+            else {
+                usleep(1000);
                 continue;
+            }
+                
         }
 
         std::shared_ptr<State> last_state;
         state_manager_ptr_->GetNearestState(last_state);
         bool need_opt = false;
         GNSSData cur_gnss_data;
+        // 添加关键帧方式区分有GNSS跟无GNSS
+        // 有GNSS时以GNSS时间戳为准，图像选择最近的，没有严格时间戳对齐
         if (param_ptr_->use_gnss_ &&
             data_manager_ptr_->GetLastGNSSData(cur_gnss_data, last_gnss_data_.time_))
         {
@@ -589,55 +594,64 @@ void Optimizer::Run()
                     last_gnss_data_ = cur_gnss_data;
                     need_opt = true;
                 }
-            }
-            else
-            {
-                last_state->cur_gnss_data_ = cur_gnss_data;
-                last_gnss_data_ = cur_gnss_data;
-                need_opt = true;
-            }
-            WheelData cur_wheel_data;
-            if (param_ptr_->wheel_use_type_ == 2 &&
-                data_manager_ptr_->GetDatas(cur_wheel_data, cur_gnss_data.time_))
-            {
-                last_state->cur_wheel_data_ = cur_wheel_data;
-            }
-        }
-        // WheelData cur_wheel_data;
-        // if (param_ptr_->wheel_use_type_ == 2 &&
-        //     data_manager_ptr_->GetLastWheelData(cur_wheel_data, last_wheel_data_.time_))
-        // {
-        //     double dt = std::abs(last_state->time_ - cur_wheel_data.time_);
-        //     if (dt > 0.04)
-        //     {
-        //         auto preint = predictor_ptr_->CreatePreintegration(
-        //             last_state->time_, cur_wheel_data.time_,
-        //             last_state->ba_, last_state->bg_);
-        //         std::shared_ptr<State> new_state = preint->predict(last_state);
-        //         state_manager_ptr_->PushState(new_state);
-        //         last_state = new_state;
-        //     }
-        //     last_state->cur_wheel_data_ = cur_wheel_data;
-        //     last_wheel_data_ = cur_wheel_data;
-        // }
+                else
+                {
+                    usleep(1000);
+                    continue;
+                }
+                // 添加 轮速计数据
+                WheelData cur_wheel_data;
+                if (param_ptr_->wheel_use_type_ == 2 &&
+                    data_manager_ptr_->GetDatas(cur_wheel_data, cur_gnss_data.time_))
+                {
+                    last_state->cur_wheel_data_ = cur_wheel_data;
+                }
 
-        FeatureData feature_data;
-        if (param_ptr_->use_camera_ &&
-            data_manager_ptr_->GetNewFeatureData(feature_data, last_feature_data_.time_))
-        {
-            double dt = std::abs(last_state->time_ - feature_data.time_);
-            if (dt > 0.04)
-            {
-                auto preint = predictor_ptr_->CreatePreintegration(
-                    last_state->time_, feature_data.time_,
-                    last_state->ba_, last_state->bg_);
-                std::shared_ptr<State> new_state = preint->predict(last_state);
-                state_manager_ptr_->PushState(new_state);
-                last_state = new_state;
+                // 添加 图像数据
+                FeatureData feature_data;
+                if (
+                    param_ptr_->use_camera_ &&
+                    data_manager_ptr_->GetNewFeatureData(feature_data, last_feature_data_.time_))
+                {
+                    std::vector<std::shared_ptr<State>> window_states = state_manager_ptr_->GetAllStates();
+                    vins_feature_manager_ptr_->addFeatureCheckParallax(
+                        window_states.size(), feature_data.features_, last_state);
+                    last_state->feature_data_ = feature_data;
+                    last_feature_data_ = feature_data;
+                }
             }
-            last_state->feature_data_ = feature_data;
-            last_feature_data_ = feature_data;
+            // else
+            // {
+            //     last_state->cur_gnss_data_ = cur_gnss_data;
+            //     last_gnss_data_ = cur_gnss_data;
+            //     need_opt = true;
+            // }
         }
+        else if (param_ptr_->use_camera_)
+        {
+            FeatureData feature_data;
+            if (data_manager_ptr_->GetNewFeatureData(feature_data, last_feature_data_.time_))
+            {
+                double dt = std::abs(last_state->time_ - feature_data.time_);
+                if (dt > 0.04)
+                {
+                    auto preint = predictor_ptr_->CreatePreintegration(
+                        last_state->time_, feature_data.time_,
+                        last_state->ba_, last_state->bg_);
+                    std::shared_ptr<State> new_state = preint->predict(last_state);
+                    state_manager_ptr_->PushState(new_state);
+                    last_state = new_state;
+
+                    std::vector<std::shared_ptr<State>> window_states = state_manager_ptr_->GetAllStates();
+                    vins_feature_manager_ptr_->addFeatureCheckParallax(
+                        window_states.size(), feature_data.features_, last_state);
+                }
+                last_state->feature_data_ = feature_data;
+                last_feature_data_ = feature_data;
+            }
+        }
+
+        
         if (!need_opt)
         {
             usleep(1000);

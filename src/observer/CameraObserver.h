@@ -2,7 +2,7 @@
 #include <boost/math/distributions/chi_squared.hpp>
 
 #include "Observer.h"
-#include "visual/Feature.hpp"
+#include "visual/MsckfFeature.hpp"
 
 class CameraObserver : public Observer
 {
@@ -38,7 +38,7 @@ private:
      * @param  H 雅可比
      * @param  r 误差
      */
-    void measurementUpdate(
+    void MeasurementUpdate(
         const Eigen::MatrixXd &H, const Eigen::VectorXd &r, const std::shared_ptr<State> & state_ptr)
     {
 
@@ -114,7 +114,7 @@ private:
         // 4. 更新协方差
         Eigen::MatrixXd I_KH = Eigen::MatrixXd::Identity(K.rows(), H_thin.cols()) - K * H_thin;
         // state_ptr->C_ = I_KH*state_ptr->C_*I_KH.transpose() +
-        //   K*K.transpose()*Feature::observation_noise;
+        //   K*K.transpose()*MsckfFeature::observation_noise;
         Eigen::MatrixXd C_tmp = I_KH * state_ptr->C_;
 
         // Fix the covariance to be symmetric
@@ -129,7 +129,7 @@ private:
      * @param  H_x 雅可比
      * @param  r 误差
      */
-    void featureJacobian(
+    void FeatureJacobian(
         const FeatureIDType &feature_id,
         const std::vector<int> &cam_state_ids,
         Eigen::MatrixXd &H_x, Eigen::VectorXd &r)
@@ -172,7 +172,7 @@ private:
             Eigen::Matrix<double, 2, 3> H_fi = Eigen::Matrix<double, 2, 3>::Zero();
             Eigen::Vector2d r_i = Eigen::Vector2d::Zero();
             // 2.1 计算一个左右目观测的雅可比
-            measurementJacobian(cam_id, feature.id_, H_xi, H_fi, r_i);
+            MeasurementJacobian(cam_id, feature.id_, H_xi, H_fi, r_i);
 
             // 计算这个cam_id在整个矩阵的列数，因为要在大矩阵里面放
             auto cam_state_iter = state_manager_ptr_->cam_states_.find(cam_id);
@@ -214,7 +214,7 @@ private:
      * @param  H_f 归一化误差相对于三维点误差的雅可比
      * @param  r 误差
      */
-    void measurementJacobian(
+    void MeasurementJacobian(
         const int &cam_state_id,
         const FeatureIDType &feature_id,
         Eigen::Matrix<double, 2, 6> &H_x, Eigen::Matrix<double, 2, 3> &H_f, Eigen::Vector2d &r)
@@ -223,7 +223,7 @@ private:
         // Prepare all the required data.
         // 1. 取出相机状态与特征
         const std::shared_ptr<CamState> &cam_state = state_manager_ptr_->cam_states_[cam_state_id];
-        const Feature &feature = map_server[feature_id];
+        const MsckfFeature &feature = map_server[feature_id];
 
         // 2. 取出左目位姿，根据外参计算右目位姿
         // Cam0 pose.
@@ -290,7 +290,7 @@ private:
         return;
     }
 
-    bool gatingTest(
+    bool GatingTest(
         const Eigen::MatrixXd &H, const Eigen::VectorXd &r, const int &dof, const Eigen::MatrixXd & C)
     {
         // 输入的dof的值是所有相机观测，且没有去掉滑窗的

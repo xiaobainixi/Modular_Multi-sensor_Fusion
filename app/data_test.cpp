@@ -4,7 +4,7 @@
 
 int main() {
     // data test
-    std::shared_ptr<Parameter> param_ptr = std::make_shared<Parameter>("config.yaml");
+    std::shared_ptr<Parameter> param_ptr = std::make_shared<Parameter>("euroc.yaml");
     std::shared_ptr<DataManager> data_manager_ptr = std::make_shared<DataManager>(param_ptr);
     std::shared_ptr<StateManager> state_manager_ptr = std::make_shared<StateManager>(param_ptr);
     
@@ -45,7 +45,7 @@ int main() {
             if (!camera_data.image_.empty()) {
                 cv::cvtColor(camera_data.image_, camera_data.image_, cv::COLOR_BayerRG2RGB);
                 cv::cvtColor(camera_data.image_, camera_data.image_, cv::COLOR_RGB2GRAY);
-                camera_data.image_ = camera_data.image_.rowRange(0, camera_data.image_.rows / 3);
+                // camera_data.image_ = camera_data.image_.rowRange(0, camera_data.image_.rows / 3);
                 data_manager_ptr->Input(camera_data);
             } else {
                 LOG(ERROR) << "读取图片失败，图片路径为： " << input_data.img_path_;

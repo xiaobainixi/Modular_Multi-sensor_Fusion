@@ -1,6 +1,7 @@
 #pragma once
 #include "Updater.h"
 
+#include "visual/VinsFeatureManager.h"
 #include "marginalization/marginalization_factor.h"
 #include "marginalization/marginalization_info.h"
 #include "marginalization/residual_block_info.h"
@@ -24,16 +25,13 @@ public:
         data_manager_ptr_ = data_manager_ptr;
         state_manager_ptr_ = state_manager_ptr;
 
-        if (param_ptr_->use_imu_ && param_ptr_->wheel_use_type_ != 1) {
-            preintegration_type_ = 0;
+        if (param_ptr_->state_type_ == 0) {
             predictor_ptr_ = std::make_shared<IMUPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
-        } else if (param_ptr_->use_imu_ && param_ptr_->wheel_use_type_ == 1) {
-            // todo imu+wheel
-            preintegration_type_ = 2;
+        } else if (param_ptr_->state_type_ == 2) {
+            // imu+wheel
             predictor_ptr_ = std::make_shared<WheelIMUPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
-        } else if (!param_ptr_->use_imu_ && param_ptr_->wheel_use_type_ == 1) {
-            // todo wheel
-            preintegration_type_ = 1;
+        } else if (param_ptr_->state_type_ == 1) {
+            // wheel
             predictor_ptr_ = std::make_shared<WheelPredictor>(state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr_);
         }
 
@@ -43,29 +41,21 @@ public:
         }
 
         coo_trans_ptr_ = std::make_shared<CooTrans>();
-        if (param_ptr->gnss_wheel_align_)
-            gnss_wheel_observer_ptr_ = std::make_shared<GNSSWheelObserver>(param_ptr, data_manager_ptr, coo_trans_ptr_, state_manager_ptr, viewer_ptr_);
-        else {
-            if (param_ptr->use_gnss_)
-                gnss_observer_ptr_ = std::make_shared<GNSSObserver>(param_ptr, data_manager_ptr, coo_trans_ptr_, state_manager_ptr, viewer_ptr_);
-            
-            if (param_ptr->wheel_use_type_ == 2)
-                wheel_observer_ptr_ = std::make_shared<WheelObserver>(param_ptr, data_manager_ptr, state_manager_ptr, viewer_ptr_);
-        }
 
         if (param_ptr->use_camera_) {
             image_processor_ptr_ = std::make_shared<ImageProcessor>(param_ptr, data_manager_ptr, state_manager_ptr);
-            camera_observer_ptr_ = std::make_shared<CameraObserver>(param_ptr, data_manager_ptr, state_manager_ptr, viewer_ptr_);
+            vins_feature_manager_ptr_ = std::make_shared<VinsFeatureManager>(
+                param_ptr, viewer_ptr_);
         }
 
 
-        initializers_ptr_ = std::make_shared<Initializers>(param_ptr, data_manager_ptr, coo_trans_ptr_, state_manager_ptr);
+        initializers_ptr_ = std::make_shared<Initializers>(
+            param_ptr, data_manager_ptr, coo_trans_ptr_, state_manager_ptr);
         run_thread_ptr_ = std::make_shared<std::thread>(&Optimizer::Run, this);
     }
 
     
 private:
-    int preintegration_type_; // 0 imu, 1 wheel, 2 imu+wheel
     void Run();
     void SlideWindow();
     void Optimization();
@@ -75,12 +65,8 @@ private:
     std::shared_ptr<Preintegration> preintegration_ptr_;
 
     std::shared_ptr<CooTrans> coo_trans_ptr_;
-    // todo add
-    std::shared_ptr<GNSSObserver> gnss_observer_ptr_;
-    std::shared_ptr<WheelObserver> wheel_observer_ptr_;
-    std::shared_ptr<GNSSWheelObserver> gnss_wheel_observer_ptr_;
     std::shared_ptr<ImageProcessor> image_processor_ptr_;
-    std::shared_ptr<CameraObserver> camera_observer_ptr_;
+    std::shared_ptr<VinsFeatureManager> vins_feature_manager_ptr_;
 
     // 边缘化
     // Marginalization variables

@@ -281,7 +281,7 @@ private:
     bool is_first_img;
 
     // ID for the next new feature.
-    FeatureIDType next_feature_id;
+    FeatureIDType next_feature_id = 0;
 
     // Feature detector
     ProcessorConfig processor_config;

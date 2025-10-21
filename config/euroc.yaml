@@ -1,0 +1,49 @@
+%YAML:1.0
+
+# 0 kf 1 ba
+fusion_model: 0
+
+# predict type
+use_imu: 1
+use_camera: 1
+
+# sensor conv
+gyro_noise: 1e-05 # 100hz
+gyro_bias_noise: 1e-08 # 100hz
+acc_noise: 1e-04 # 100hz
+acc_bias_noise: 1e-05 # 100hz
+
+fix_yz_in_eskf: 0
+
+visual_observation_noise: 100000000.0
+cam_distortion_model: radtan
+camera_fx: 458.654
+camera_fy: 457.296
+camera_cx: 367.215
+camera_cy: 248.375
+
+camera_k1: -0.28340811
+camera_k2: 0.07395907
+camera_p1: 0.00019359
+camera_p2: 1.76187114e-05
+camera_k3: 0.0
+
+keyframe_parallax: 10.0
+
+Rbc: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 0.0148655429818, -0.999880929698, 0.00414029679422, 
+           0.999557249008, 0.0149672133247, 0.025715529948,
+           -0.0257744366974, 0.00375618835797, 0.999660727178]
+tbc: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [-0.0216401454975, -0.064676986768, 0.00981073058949]
+
+# data
+play_speed: 10.0
+data_path: ../data/MH_01_easy/
+data_type: euroc

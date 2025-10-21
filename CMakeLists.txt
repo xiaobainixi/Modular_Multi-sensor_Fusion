@@ -56,6 +56,10 @@ add_library(${PROJECT_NAME} SHARED
     src/predictor/WheelPredictor.cpp
 
     src/visual/ImageProcessor.cpp
+    src/visual/VinsFeatureManager.cpp
+    src/common/InitialSFM.cpp
+    src/common/InitialAlignment.cpp
+    src/common/Solve5pts.cpp
 
     src/updater/Optimizer.cpp
     src/updater/Filter.cpp
