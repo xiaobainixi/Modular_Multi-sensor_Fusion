@@ -104,6 +104,7 @@ bool VinsFeatureManager::addFeatureCheckParallax(
     } else {
         LOG(INFO) << "parallax_sum: " << parallax_sum << ", parallax_num: " << parallax_num;
         LOG(INFO) << "current parallax: " << (parallax_sum / parallax_num);
+        LOG(INFO) << "last_track_num: " << last_track_num;
         // 看看平均视差是否超过一个阈值
         return parallax_sum / parallax_num >= param_ptr_->MIN_PARALLAX;
     }

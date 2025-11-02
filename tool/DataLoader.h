@@ -49,4 +49,5 @@ private:
     double d2r_ = 0.017453292519943295;
     double last_data_time_ = -1.0;
     struct timeval t1_, t2_;
+    double skip_seconds_ = 0.0;
 };

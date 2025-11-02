@@ -19,7 +19,7 @@ public:
     {
         double cam_size = 1.5;
         double cam_line_width = 3.;
-        double point_size = 2.;
+        double point_size = 10.;
         double wheel_frame_size = 2.;
         double view_point_x = 0.;
         double view_point_y = 0.;

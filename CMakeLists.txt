@@ -4,7 +4,7 @@ project(Modular_Multi-sensor_Fusion)
 add_definitions(-w)
 
 IF(NOT CMAKE_BUILD_TYPE)
-    SET(CMAKE_BUILD_TYPE Debug)
+    SET(CMAKE_BUILD_TYPE Release)
 ENDIF()
 
 MESSAGE("Build type: " ${CMAKE_BUILD_TYPE})
@@ -57,9 +57,9 @@ add_library(${PROJECT_NAME} SHARED
 
     src/visual/ImageProcessor.cpp
     src/visual/VinsFeatureManager.cpp
-    src/common/InitialSFM.cpp
-    src/common/InitialAlignment.cpp
-    src/common/Solve5pts.cpp
+    src/initializers/InitialSFM.cpp
+    src/initializers/InitialAlignment.cpp
+    src/initializers/Solve5pts.cpp
 
     src/updater/Optimizer.cpp
     src/updater/Filter.cpp

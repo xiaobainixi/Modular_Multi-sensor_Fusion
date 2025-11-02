@@ -7,17 +7,18 @@
 #include <Eigen/Core>
 #include <cmath>
 
-#include "Parameter.h"
-#include "DataManager.h"
-#include "StateManager.h"
-#include "Converter.h"
-#include "CooTrans.h"
+#include "common/Parameter.h"
+#include "common/DataManager.h"
+#include "common/StateManager.h"
+#include "common/Converter.h"
+#include "common/CooTrans.h"
 #include "visual/VinsFeatureManager.h"
+#include "observer/CameraObserver.h"
 #include "predictor/IMUPredictor.h"
 
-#include "Solve5pts.h"
-#include "InitialSFM.h"
-#include "InitialAlignment.h"
+#include "initializers/Solve5pts.h"
+#include "initializers/InitialSFM.h"
+#include "initializers/InitialAlignment.h"
 
 // 零速阈值, rad/s, m/s^2
 static constexpr double ZERO_VELOCITY_GYR_THRESHOLD = 0.002;
@@ -52,6 +53,8 @@ public:
             return true;
         }
     }
+    // MSCKF特征管理
+    MapServer map_server_;
 private:
 
     template <typename T>
@@ -238,7 +241,7 @@ private:
         LOG(INFO) << "GNSS 初始化完毕";
         LOG(INFO) << "初始化状态量：";
         LOG(INFO) << "时间: " << cur_state_ptr->time_;
-        LOG(INFO) << "位姿: " << cur_state_ptr->twb_.transpose();
+        LOG(INFO) << "位置: " << cur_state_ptr->twb_.transpose();
         LOG(INFO) << "速度: " << cur_state_ptr->Vw_.transpose();
         LOG(INFO) << "加速度零偏: " << cur_state_ptr->ba_.transpose();
         LOG(INFO) << "陀螺零偏: " << cur_state_ptr->bg_.transpose();
@@ -246,9 +249,19 @@ private:
         return true;
     }
 
+    // VINS 视觉惯性初始化
     bool VisualInitialization() {
         if (param_ptr_->state_type_ != 0) {
             LOG(INFO) << "无需视觉惯性初始化";
+
+            std::shared_ptr<State> cur_state_ptr = std::make_shared<State>();
+
+            cur_state_ptr->C_ = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM);
+            cur_state_ptr->C_.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->POSI_INDEX) = Eigen::Matrix3d::Identity() * 0.0025;
+            cur_state_ptr->C_.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.0025;
+            if (param_ptr_->state_type_ == 2) {
+                cur_state_ptr->C_.block<3, 3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
+            }
             return true;
         }
 
@@ -267,7 +280,7 @@ private:
             }
 
             double dt = std::abs(last_state->time_ - feature_data.time_);
-            if (dt > 0.1)
+            if (dt > 0.08)
             {
                 std::vector<IMUData> datas;
                 data_manager_ptr_->GetDatasBetween(datas, last_state->time_, feature_data.time_);
@@ -286,6 +299,9 @@ private:
                 last_state = new_state;
 
                 int start_frame_idx = state_manager_ptr_->GetAllStates().size();
+                LOG(INFO) << "Visual Initialization add new state at time " << std::to_string(feature_data.time_)
+                    << ", frame index " << std::to_string(start_frame_idx)
+                    << ", point num: " << feature_data.features_.size();
                 vins_feature_manager_ptr_->addFeatureCheckParallax(
                     start_frame_idx, feature_data.features_, last_state);
                 state_manager_ptr_->PushState(new_state);
@@ -295,7 +311,7 @@ private:
             last_feature_data_ = feature_data;
         }
 
-        if (state_manager_ptr_->GetAllStates().size() >= param_ptr_->WINDOW_SIZE) {
+        if (state_manager_ptr_->GetAllStates().size() > param_ptr_->WINDOW_SIZE) {
             LOG(INFO) << "凑够了初始化帧数";
             if (InitialStructure()) {
                 LOG(INFO) << "视觉惯性初始化完毕";
@@ -352,7 +368,8 @@ private:
                 imu_j++;
                 Eigen::Vector3d pts_j = it_per_frame.point;
                 // 索引以及各自坐标系下的坐标
-                tmp_feature.observation.push_back(std::make_pair(imu_j, Eigen::Vector2d{pts_j.x(), pts_j.y()}));
+                tmp_feature.observation.push_back(
+                    std::make_pair(imu_j, Eigen::Vector2d{pts_j.x(), pts_j.y()}));
             }
             sfm_f.push_back(tmp_feature);
         } 
@@ -372,6 +389,8 @@ private:
         {
             LOG(INFO) << "global SFM failed!";
             return false;
+        } else {
+            LOG(INFO) << "global SFM success!";
         }
 
         // Step 3 solve pnp for all frame
@@ -379,7 +398,7 @@ private:
         for (int i = 0; i < frame_count; i++)
         {
             double time = all_states[i]->time_;
-            all_image_frame[time].R = Q[i].toRotationMatrix();
+            all_image_frame[time].R = Q[i].toRotationMatrix() * param_ptr_->Rbc_.transpose();
             all_image_frame[time].T = T[i];
         }
 
@@ -392,6 +411,15 @@ private:
         Eigen::Matrix3d Rs[frame_count];
         // Eigen::Vector3d Bas[frame_count];
         Eigen::Vector3d Bgs[frame_count];
+        for (int i = 0; i < frame_count; i++)
+        {
+            Rs[i].setIdentity();
+            Ps[i].setZero();
+            Vs[i].setZero();
+            // Bas[i].setZero();
+            Bgs[i].setZero();
+        }
+
         //solve scale
         bool result = VisualIMUAlignment(
             param_ptr_, all_image_frame, Bgs, g, x);
@@ -403,8 +431,12 @@ private:
 
         // change state
         // 首先把对齐后KF的位姿附给滑窗中的值，Rwi twc
-        for (int i = 0; i <= frame_count; i++)
+        LOG(INFO) << "all_image_frame: " << all_image_frame.size();
+        for (auto [ti, imagedd] : all_image_frame)
+            LOG(INFO) << "all_image_frame1: " << std::to_string(ti);
+        for (int i = 0; i < frame_count; i++)
         {
+            LOG(INFO) << "frame_count: " << std::to_string(all_states[i]->time_);
             Eigen::Matrix3d Ri = all_image_frame[all_states[i]->time_].R;
             Eigen::Vector3d Pi = all_image_frame[all_states[i]->time_].T;
             Ps[i] = Pi;
@@ -412,7 +444,7 @@ private:
             all_image_frame[all_states[i]->time_].is_key_frame = true;
         }
 
-        VectorXd dep = vins_feature_manager_ptr_->getDepthVector();  // 根据有效特征点数初始化这个动态向量
+        Eigen::VectorXd dep = vins_feature_manager_ptr_->getDepthVector();  // 根据有效特征点数初始化这个动态向量
         for (int i = 0; i < dep.size(); i++)
             dep[i] = -1;    // 深度预设都是-1
         vins_feature_manager_ptr_->clearDepth(dep);  // 特征管理器把所有的特征点逆深度也设置为-1
@@ -429,16 +461,16 @@ private:
 
         double s = (x.tail<1>())(0);
         // 将滑窗中的预积分重新计算
-        for (int i = 0; i <= param_ptr_->WINDOW_SIZE; i++)
+        for (int i = 1; i <= param_ptr_->WINDOW_SIZE; i++)
         {
-            all_states[i]->preint_->Repropagate(Vector3d::Zero(), Bgs[i]);
+            all_states[i]->preint_->Repropagate(Eigen::Vector3d::Zero(), Bgs[i]);
         }
         // 下面开始把所有的状态对齐到第0帧的imu坐标系
         for (int i = frame_count; i >= 0; i--)
             // twi - tw0 = toi,就是把所有的平移对齐到滑窗中的第0帧
             Ps[i] = s * Ps[i] - Rs[i] * param_ptr_->tbc_ - (s * Ps[0] - Rs[0] * param_ptr_->tbc_);
         int kv = -1;
-        map<double, ImageFrame>::iterator frame_i;
+        std::map<double, ImageFrame>::iterator frame_i;
         // 把求解出来KF的速度赋给滑窗中
         for (frame_i = all_image_frame.begin(); frame_i != all_image_frame.end(); frame_i++)
         {
@@ -464,14 +496,102 @@ private:
         g = R0 * g;
         //Eigen::Matrix3d rot_diff = R0 * Rs[0].transpose();
         Eigen::Matrix3d rot_diff = R0;
-        for (int i = 0; i <= frame_count; i++)
+        for (int i = 0; i < frame_count; i++)
         {
-            Ps[i] = rot_diff * Ps[i];
-            Rs[i] = rot_diff * Rs[i];   // 全部对齐到重力下，同时yaw角对齐到第一帧
-            Vs[i] = rot_diff * Vs[i];
+            // Ps[i] = rot_diff * Ps[i];
+            // Rs[i] = rot_diff * Rs[i];   // 全部对齐到重力下，同时yaw角对齐到第一帧
+            // Vs[i] = rot_diff * Vs[i];
+
+            all_states[i]->twb_ = rot_diff * Ps[i];
+            all_states[i]->Rwb_ = Eigen::Quaterniond(rot_diff * Rs[i]);
+            all_states[i]->Vw_ = rot_diff * Vs[i];
+            all_states[i]->bg_ = Bgs[i];
         }
+
+        int newest_idx = frame_count - 1;
+        all_states[newest_idx]->C_ = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM);
+        all_states[newest_idx]->C_.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->POSI_INDEX) = Eigen::Matrix3d::Identity() * 0.0025;
+        all_states[newest_idx]->C_.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.0025;
+        all_states[newest_idx]->C_.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->VEL_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.0025;
+        all_states[newest_idx]->C_.block<3, 3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
+        all_states[newest_idx]->C_.block<3, 3>(param_ptr_->ACC_BIAS_INDEX_STATE_, param_ptr_->ACC_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
         LOG(INFO) << "g0     " << g.transpose();
-        LOG(INFO) << "my R0  " << Converter::R2ypr(Rs[0]).transpose();
+        LOG(INFO) << "my R0  " << Converter::R2ypr(rot_diff * Rs[0]).transpose();
+
+        auto cur_state_ptr = all_states[newest_idx];
+        LOG(INFO) << "初始化状态量：";
+        LOG(INFO) << "时间: " << std::to_string(cur_state_ptr->time_);
+        LOG(INFO) << "位置: " << cur_state_ptr->twb_.transpose();
+        LOG(INFO) << "速度: " << cur_state_ptr->Vw_.transpose();
+        LOG(INFO) << "加速度零偏: " << cur_state_ptr->ba_.transpose();
+        LOG(INFO) << "陀螺零偏: " << cur_state_ptr->bg_.transpose();
+        LOG(INFO) << "旋转矩阵:\n" << cur_state_ptr->Rwb_;
+        if (param_ptr_->fusion_model_ == 0) {
+            // 初始化填充cam_states_和map_server
+            // 只保留第二个帧以及之后的
+            state_manager_ptr_->cam_states_.clear();
+
+            // 填充cam_states_
+            for (int i = 0; i < frame_count; ++i) {
+                auto cam_state = std::make_shared<CamState>(i);
+                cam_state->time = all_states[i]->time_;
+                cam_state->Rwc_ = all_states[i]->Rwb_ * param_ptr_->Rbc_;
+                cam_state->twc_ = all_states[i]->Rwb_ * param_ptr_->tbc_ + all_states[i]->twb_;
+                state_manager_ptr_->cam_states_[i] = cam_state;
+            }
+
+            // 填充协方差矩阵 C_
+            int N = state_manager_ptr_->cam_states_.size();
+            int state_dim = 15 + 6 * N;
+            cur_state_ptr->C_ = Eigen::MatrixXd::Identity(state_dim, state_dim);
+
+            // 主状态部分（前15维）赋初值
+            cur_state_ptr->C_.block<3,3>(param_ptr_->POSI_INDEX, param_ptr_->POSI_INDEX) = Eigen::Matrix3d::Identity() * 0.0025;
+            cur_state_ptr->C_.block<3,3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.0025;
+            cur_state_ptr->C_.block<3,3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->VEL_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.0025;
+            cur_state_ptr->C_.block<3,3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
+            cur_state_ptr->C_.block<3,3>(param_ptr_->ACC_BIAS_INDEX_STATE_, param_ptr_->ACC_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
+
+            // 每个cam_state的协方差（后6N维），可设置为较大初值
+            for (int i = 0; i < N; ++i) {
+                int idx = 15 + i * 6;
+                cur_state_ptr->C_.block<6,6>(idx, idx) = Eigen::Matrix<double,6,6>::Identity() * 0.01;
+            }
+
+            // 填充map_server，只保留三角化成功的点
+            int valid_feature_count = 0;
+            std::ofstream ofs("sfm_points2.txt");
+            for (const auto& feat : vins_feature_manager_ptr_->feature) {
+                if (feat.estimated_depth > 0) {
+                    // 取第一个观测帧
+                    const auto& first_frame = feat.feature_per_frame[0];
+                    // 归一化相机坐标
+                    Eigen::Vector3d uv = first_frame.point;
+                    // 相机坐标系下三维点
+                    Eigen::Vector3d pts_cam = uv * feat.estimated_depth;
+
+                    // 取该帧的位姿
+                    auto first_obs_frame = state_manager_ptr_->cam_states_[feat.start_frame];
+                    // 转到世界坐标系
+                    Eigen::Vector3d position = first_obs_frame->Rwc_ * pts_cam + first_obs_frame->twc_;
+
+                    MsckfFeature msckf_feat(feat.feature_id, param_ptr_);
+                    msckf_feat.position = position;
+                    ofs << feat.feature_id << " " << position.x() << " " << position.y() << " " << position.z() << " " << 
+                        feat.estimated_depth << " " << uv.transpose() << " " << first_obs_frame->twc_.y() << " " << first_obs_frame->twc_.z() << "\n";
+                    msckf_feat.is_initialized = true;
+                    // 观测填充
+                    for (int idx = 0; idx < feat.feature_per_frame.size(); idx++) {
+                        int frame_idx = idx + feat.start_frame;
+                        msckf_feat.observations[frame_idx] = feat.feature_per_frame[idx].point.head<2>();
+                    }
+                    // 加入map_server
+                    map_server_[feat.feature_id] = msckf_feat;
+                    valid_feature_count++;
+                }
+            }
+            LOG(INFO) << "Map server initialized with " << valid_feature_count << " features.";
+        }
         return true;
     }
 
@@ -486,15 +606,15 @@ private:
      * @return false 
      */
 
-    bool RelativePose(Matrix3d &relative_R, Vector3d &relative_T, int &l)
+    bool RelativePose(Eigen::Matrix3d &relative_R, Eigen::Vector3d &relative_T, int &l)
     {
         MotionEstimator m_estimator;
         // find previous frame which contians enough correspondance and parallex with newest frame
         // 优先从最前面开始
-        for (int i = 0; i < param_ptr_->WINDOW_SIZE - 1; i++)
+        for (int i = 0; i < param_ptr_->WINDOW_SIZE; i++)
         {
-            vector<pair<Vector3d, Vector3d>> corres;
-            corres = vins_feature_manager_ptr_->getCorresponding(i, param_ptr_->WINDOW_SIZE - 1);
+            std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> corres;
+            corres = vins_feature_manager_ptr_->getCorresponding(i, param_ptr_->WINDOW_SIZE);
             // LOG(INFO) << "frame " << i << " to newest frame has correspondance " << corres.size();
             // 要求共视的特征点足够多
             if (corres.size() > 20)
@@ -503,8 +623,8 @@ private:
                 double average_parallax;
                 for (int j = 0; j < int(corres.size()); j++)
                 {
-                    Vector2d pts_0(corres[j].first(0), corres[j].first(1));
-                    Vector2d pts_1(corres[j].second(0), corres[j].second(1));
+                    Eigen::Vector2d pts_0(corres[j].first(0), corres[j].first(1));
+                    Eigen::Vector2d pts_1(corres[j].second(0), corres[j].second(1));
                     double parallax = (pts_0 - pts_1).norm();   // 计算了视差
                     sum_parallax = sum_parallax + parallax;
 
@@ -546,7 +666,6 @@ private:
     FeatureData last_feature_data_;
 
     std::shared_ptr<CooTrans> coo_trans_ptr_;
-
 
     const double D2R = (M_PI / 180.0);
     const double R2D = (180.0 / M_PI);

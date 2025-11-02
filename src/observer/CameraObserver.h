@@ -25,12 +25,16 @@ public:
             chi_squared_test_table_[i] =
                 boost::math::quantile(chi_squared_dist, 0.05);
         }
+
+        // 跳过初始化的帧id
+        cam_states_next_id_ = param_ptr_->WINDOW_SIZE;
     }
 
     bool ComputeHZR(
         const FeatureData & feature_data, const std::shared_ptr<State> & state_ptr,
         Eigen::MatrixXd & H, Eigen::MatrixXd & Z, Eigen::MatrixXd &R);
-
+    // 理解为一种特征管理，本质是一个map，key为特征点id，value为特征类
+    MapServer map_server;
 private:
 
     /**
@@ -156,8 +160,9 @@ private:
         jacobian_row_size = 2 * valid_cam_state_ids.size();
 
         // 误差相对于状态量的雅可比，没有约束列数，因为列数一直是最新的
-        Eigen::MatrixXd H_xj = Eigen::MatrixXd::Zero(jacobian_row_size,
-                                        param_ptr_->STATE_DIM + state_manager_ptr_->cam_states_.size() * 6);
+        Eigen::MatrixXd H_xj = Eigen::MatrixXd::Zero(
+            jacobian_row_size,
+            param_ptr_->STATE_DIM + state_manager_ptr_->cam_states_.size() * 6);
         // 误差相对于三维点的雅可比
         Eigen::MatrixXd H_fj = Eigen::MatrixXd::Zero(jacobian_row_size, 3);
         // 误差
@@ -167,7 +172,6 @@ private:
         // 2. 计算每一个观测（同一帧左右目这里被叫成一个观测）的雅可比与误差
         for (const auto &cam_id : valid_cam_state_ids)
         {
-
             Eigen::Matrix<double, 2, 6> H_xi = Eigen::Matrix<double, 2, 6>::Zero();
             Eigen::Matrix<double, 2, 3> H_fi = Eigen::Matrix<double, 2, 3>::Zero();
             Eigen::Vector2d r_i = Eigen::Vector2d::Zero();
@@ -255,7 +259,8 @@ private:
 
         // 式6.84 左相机坐标系下的三维点相对于左相机位姿的雅可比 先r后t
         Eigen::Matrix<double, 3, 6> dpc0_dxc = Eigen::Matrix<double, 3, 6>::Zero();
-        dpc0_dxc.leftCols(3) = Converter::Skew(p_c0);
+        // 注意这里是三维点对Rwc_的雅可比，原版MSCKF-VIO中是对Rcw的雅可比，坐标相反
+        dpc0_dxc.leftCols(3) = cam_state->Rwc_.inverse() * Converter::Skew(p_w - cam_state->twc_);
         dpc0_dxc.rightCols(3) = -cam_state->Rwc_.inverse().toRotationMatrix();
 
         // Vector3d p_c0 = cam_state->Rwc_.inverse() * (p_w - cam_state->twc_);
@@ -272,16 +277,16 @@ private:
         // observability constrain.
         // 6. OC
         // 式6.114
-        Eigen::Matrix<double, 2, 6> A = H_x;
-        Eigen::Matrix<double, 6, 1> u = Eigen::Matrix<double, 6, 1>::Zero();
-        u.block<3, 1>(0, 0) = 
-            cam_state->Rwc_null_ * param_ptr_->gw_;
-        u.block<3, 1>(3, 0) =
-            Converter::Skew(p_w - cam_state->twc_null_) * param_ptr_->gw_;
-        // 式6.115
-        H_x = A - A * u * (u.transpose() * u).inverse() * u.transpose();
-        // 式6.113 Ht = -Hp 也就是代码中的这行
-        H_f = -H_x.block<2, 3>(0, 3);
+        // Eigen::Matrix<double, 2, 6> A = H_x;
+        // Eigen::Matrix<double, 6, 1> u = Eigen::Matrix<double, 6, 1>::Zero();
+        // u.block<3, 1>(0, 0) =
+        //     cam_state->Rwc_null_.inverse() * param_ptr_->gw_;
+        // u.block<3, 1>(3, 0) =
+        //     Converter::Skew(p_w - cam_state->twc_null_) * param_ptr_->gw_;
+        // // 式6.115
+        // H_x = A - A * u * (u.transpose() * u).inverse() * u.transpose();
+        // // 式6.113 Ht = -Hp 也就是代码中的这行
+        // H_f = -H_x.block<2, 3>(0, 3);
 
         // Compute the residual.
         // 7. 计算归一化平面坐标误差
@@ -319,8 +324,6 @@ private:
     
     int cam_states_next_id_ = 0;
     std::map<int, double> chi_squared_test_table_;
-    // 理解为一种特征管理，本质是一个map，key为特征点id，value为特征类
-    MapServer map_server;
 };
 
 class ProjectionFactor : public ceres::SizedCostFunction<2, 3, 4, 3, 4, 1>

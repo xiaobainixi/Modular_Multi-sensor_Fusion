@@ -6,9 +6,6 @@
 #include "preint/IMUPreintegration.h"
 #include "visual/VinsFeatureManager.h"
 
-using namespace Eigen;
-using namespace std;
-
 class ImageFrame
 {
 public:
@@ -21,12 +18,13 @@ public:
     };
     std::vector<FeaturePoint> points;
     double t;
-    Matrix3d R;
-    Vector3d T;
+    Eigen::Matrix3d R;
+    Eigen::Vector3d T;
     IMUPreintegration *pre_integration;
     bool is_key_frame;
 };
 
 bool VisualIMUAlignment(
     const std::shared_ptr<Parameter> &param_ptr,
-    std::map<double, ImageFrame> &all_image_frame, Vector3d *Bgs, Vector3d &g, VectorXd &x);
+    std::map<double, ImageFrame> &all_image_frame,
+    Eigen::Vector3d *Bgs, Eigen::Vector3d &g, Eigen::VectorXd &x);

@@ -91,7 +91,10 @@ void Filter::UpdateFromCamera(const std::shared_ptr<State> & state_ptr) {
     if (!data_manager_ptr_->GetNewFeatureData(feature_data, last_feature_data_.time_) ||
         !state_manager_ptr_->GetNearestState(feature_data_state, feature_data.time_))
         return;
-    // LOG(INFO) << "UpdateFromCamera";
+    LOG(INFO) << "UpdateFromCamera" << std::to_string(feature_data.time_) << " " << std::to_string(state_ptr->time_)
+        << " " << std::to_string(feature_data_state->time_);
+    LOG(INFO) << "feature_data_state" << feature_data_state->twb_.transpose() << " " << feature_data_state->Vw_.transpose()
+        << " " << feature_data_state->Rwb_;
     feature_data.Rwc_ = feature_data_state->Rwb_ * param_ptr_->Rbc_;
     feature_data.twc_ = feature_data_state->Rwb_ * param_ptr_->tbc_ + feature_data_state->twb_;
     feature_data.Rwb_ = feature_data_state->Rwb_;
@@ -103,12 +106,8 @@ void Filter::UpdateFromCamera(const std::shared_ptr<State> & state_ptr) {
     Eigen::MatrixXd Z;
     Eigen::MatrixXd R;
     Eigen::MatrixXd C_new;
-    // 1. 计算ESKF需要的数据
+    // 1. 计算ESKF需要的数据并更新
     camera_observer_ptr_->ComputeHZR(feature_data, state_ptr, H, Z, R);
-    // 2. 计算更新量
-    // ESKFUpdate(H, state_ptr->C_, R, Z, C_new, X);
-    // // 3. 更新
-    // state_ptr->Update(param_ptr_, X, C_new);
     last_feature_data_.time_ = feature_data.time_;
 }
 
@@ -120,8 +119,11 @@ void Filter::Run() {
     while (1)
     {
         if (!initialized_) {
-            if (initializers_ptr_->Initialization())
+            if (initializers_ptr_->Initialization()) {
                 initialized_ = true;
+                if (param_ptr_->use_camera_)
+                    camera_observer_ptr_->map_server = initializers_ptr_->map_server_;
+            }
             else
                 continue;
         }
@@ -140,8 +142,11 @@ void Filter::Run() {
             UpdateFromWheel(state_ptr);
             UpdateFromGNSS(state_ptr);
         }
-        if (param_ptr_->use_camera_)
+        if (param_ptr_->use_camera_) {
             UpdateFromCamera(state_ptr);
+            // sleep(10000);
+        }
+            
 
         // result_file << state_ptr->twb_.x() << "," << state_ptr->twb_.y() << "," << state_ptr->twb_.z() << std::endl;
         usleep(100);

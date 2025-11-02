@@ -3,7 +3,7 @@
 
 #include "common/StateManager.h"
 #include "common/DataManager.h"
-#include "common/Initializers.h"
+#include "initializers/Initializers.h"
 
 #include "predictor/IMUPredictor.h"
 #include "predictor/WheelPredictor.h"

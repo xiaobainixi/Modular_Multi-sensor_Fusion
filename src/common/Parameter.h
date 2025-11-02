@@ -163,6 +163,11 @@ public:
             play_speed_ = node.real();
         LOG(INFO) << "play_speed: " << play_speed_;
 
+        node = f_settings["skip_seconds"];
+        if (!node.empty() && node.isReal())
+            skip_seconds_ = node.real();
+        LOG(INFO) << "skip_seconds: " << skip_seconds_;
+
         node = f_settings["data_path"];
         if (!node.empty() && node.isString())
             data_path_ = node.string();
@@ -311,7 +316,7 @@ public:
     bool fix_yz_in_eskf_ = false;
 
     // Camera
-    int WINDOW_SIZE = 20;
+    int WINDOW_SIZE = 10;
     MSCKFOptimizationConfig msckf_optimization_config_;
     double visual_observation_noise_ = 0.01;
     std::string cam_distortion_model_;
@@ -329,6 +334,7 @@ public:
     double play_speed_ = 6.0;
     std::string data_path_ = "../data/";
     std::string data_type_ = " ";
+    double skip_seconds_ = 0.0;
 
 
     double g_ = 9.81;

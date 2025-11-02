@@ -2,6 +2,7 @@
 
 DataLoader::DataLoader(const std::shared_ptr<Parameter> & param_ptr) {
     param_ptr_ = param_ptr;
+    skip_seconds_ = param_ptr_->skip_seconds_;
     std::cout << "data path: " << param_ptr_->data_path_ << std::endl;
     if (param_ptr->data_type_ == "euroc") {
         ReadEurocIMU(param_ptr_->data_path_ + "mav0/imu0/data.csv");
@@ -36,6 +37,13 @@ DataLoader::DataLoader(const std::shared_ptr<Parameter> & param_ptr) {
             image_datas_.pop();
         }
     }
+
+    if (!datas_.empty()) {
+        double skip_time = datas_.front().time_ + skip_seconds_;
+        while (!datas_.empty() && datas_.front().time_ < skip_time) {
+            datas_.pop();
+    }
+}
 }
 
 InputData DataLoader::GetNextData() {

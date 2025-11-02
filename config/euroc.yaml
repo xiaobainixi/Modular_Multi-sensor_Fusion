@@ -8,14 +8,14 @@ use_imu: 1
 use_camera: 1
 
 # sensor conv
-gyro_noise: 1e-05 # 100hz
-gyro_bias_noise: 1e-08 # 100hz
-acc_noise: 1e-04 # 100hz
-acc_bias_noise: 1e-05 # 100hz
+gyro_noise: 0.005 # 100hz
+gyro_bias_noise: 0.001  # 100hz
+acc_noise: 0.05 # 100hz
+acc_bias_noise: 0.01 # 100hz
 
 fix_yz_in_eskf: 0
 
-visual_observation_noise: 100000000.0
+visual_observation_noise: 0.0005
 cam_distortion_model: radtan
 camera_fx: 458.654
 camera_fy: 457.296
@@ -44,6 +44,7 @@ tbc: !!opencv-matrix
    data: [-0.0216401454975, -0.064676986768, 0.00981073058949]
 
 # data
-play_speed: 10.0
+play_speed: 2.0
 data_path: ../data/MH_01_easy/
 data_type: euroc
+skip_seconds: 60.0

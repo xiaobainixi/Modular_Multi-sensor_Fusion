@@ -363,7 +363,7 @@ void Viewer::Run()
         // Draw map points.
         if (show_map.Get())
         {
-            glColor3f(0.0f, 0.0f, 1.0f);
+            glColor3f(1.0f, 1.0f, 1.0f);
             DrawFeatures();
         }
 

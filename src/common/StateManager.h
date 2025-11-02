@@ -37,7 +37,7 @@ struct CamState
     // Jacobian matrices to make the observability matrix
     // have proper null space.
     // 使可观测性矩阵具有适当的零空间的旋转平移
-    Eigen::Matrix3d Rwc_null_ = Eigen::Matrix3d::Identity();
+    Eigen::Quaterniond Rwc_null_ = Eigen::Quaterniond::Identity();
     Eigen::Vector3d twc_null_ = Eigen::Vector3d::Zero();
 };
 
@@ -76,6 +76,12 @@ public:
             LOG(INFO) << "twb_: " << twb_.transpose();
             LOG(INFO) << "ba_: " << ba_.transpose();
             LOG(INFO) << "bg_: " << bg_.transpose();
+            LOG(INFO) << "Update delta:";
+            LOG(INFO) << "dR: " << X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0).transpose();
+            LOG(INFO) << "dV: " << X.block<3, 1>(param_ptr->VEL_INDEX_STATE_, 0).transpose();
+            LOG(INFO) << "dP: " << X.block<3, 1>(param_ptr->POSI_INDEX, 0).transpose();
+            LOG(INFO) << "dba: " << X.block<3, 1>(param_ptr->ACC_BIAS_INDEX_STATE_, 0).transpose();
+            LOG(INFO) << "dbg: " << X.block<3, 1>(param_ptr->GYRO_BIAS_INDEX_STATE_, 0).transpose();
         } else if(param_ptr->state_type_ == 1) {
             Rwb_ = Converter::so3ToQuat(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
             twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);

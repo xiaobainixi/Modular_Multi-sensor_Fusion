@@ -8,7 +8,7 @@ bool CameraObserver::ComputeHZR(
 {
     cam_states_next_id_++;
     // Add a new camera state to the state server.
-    // 2. 注册新的相机状态到状态库中
+    // 1. 注册新的相机状态到状态库中
     // 嗯。。。说人话就是找个记录的，不然咋更新
     state_manager_ptr_->cam_states_[cam_states_next_id_] = std::make_shared<CamState>(cam_states_next_id_);
     std::shared_ptr<CamState> cam_state_ptr = state_manager_ptr_->cam_states_[cam_states_next_id_];
@@ -28,8 +28,8 @@ bool CameraObserver::ComputeHZR(
     // -aided Inertial Navigation".
 
 
-    // 3. 这个雅可比可以认为是cam0位姿相对于imu的状态量的求偏导,注意imu状态是最新的，cam状态是有延迟的
-    // 此时我们首先要知道相机位姿是 Rcw  twc
+    // 2. 这个雅可比可以认为是cam0位姿相对于imu的状态量的求偏导,注意imu状态是最新的，cam状态是有延迟的
+    // 此时我们首先要知道相机位姿是 Rwc  twc
     // Rwc = Rwb * Rbc   twc = twb + Rwb * tbc
 
     // Twb_old = Twb_new * Tnew_old
@@ -46,22 +46,25 @@ bool CameraObserver::ComputeHZR(
     // Rcw对Rci的左扰动导数
     // J.block<3, 3>(0, 15) = Eigen::Matrix3d::Identity();
 
-    // twc对Rwb_new的左扰动导数
+    // twc对 Rwb_new 的左扰动导数
     // twc = twb_new + Exp(φ) * Rwb_new * (tnew_old + Rnew_old * tbc)
     //     = twb_new + (I + φ^) * Rwb_new * (tnew_old + Rnew_old * tbc)
     //     = twb_new + Rwb_new * (tnew_old + Rnew_old * tbc) + φ^ * Rwb_new * (tnew_old + Rnew_old * tbc)
     //     = twi + Rwi * tic - (Rwb_new * (tnew_old + Rnew_old * tbc))^ * φ
-    J.block<3, 3>(3, param_ptr_->ORI_INDEX_STATE_) = -Converter::Skew(state_ptr->Rwb_ * (tnew_old + Rnew_old * param_ptr_->tbc_));
+    // J.block<3, 3>(3, param_ptr_->ORI_INDEX_STATE_) =
+    //     -Converter::Skew(state_ptr->Rwb_ * (tnew_old + Rnew_old * param_ptr_->tbc_));
+    J.block<3, 3>(3, param_ptr_->ORI_INDEX_STATE_) =
+        -Converter::Skew(state_ptr->Rwb_ * param_ptr_->tbc_);
 
     // twc对twb_new的左扰动导数
     J.block<3, 3>(3, param_ptr_->POSI_INDEX) = Eigen::Matrix3d::Identity();
     // // twc对tic的左扰动导数
     // J.block<3, 3>(3, 18) = R_w_i.transpose();
 
-    // 4. 增广协方差矩阵
+    // 3. 增广协方差矩阵
     // 简单地说就是原来的协方差是 param_ptr_->STATE_DIM + 6n 维的，现在新来了一个伙计，维度要扩了
     // 并且对应位置的值要根据雅可比跟这个时刻（也就是最新时刻）的imu协方差计算
-    // 4.1 扩展矩阵大小 conservativeResize函数不改变原矩阵对应位置的数值
+    // 3.1 扩展矩阵大小 conservativeResize函数不改变原矩阵对应位置的数值
     // Resize the state covariance matrix.
     size_t old_rows = state_ptr->C_.rows();
     size_t old_cols = state_ptr->C_.cols();
@@ -77,7 +80,7 @@ bool CameraObserver::ComputeHZR(
         state_ptr->C_.block(0, param_ptr_->STATE_DIM, param_ptr_->STATE_DIM, old_cols - param_ptr_->STATE_DIM);
 
     // Fill in the augmented state covariance.
-    // 4.2 计算协方差矩阵
+    // 3.2 计算协方差矩阵
     // 左下角
     state_ptr->C_.block(old_rows, 0, 6, old_cols) << J * P11, J * P12;
 
@@ -95,15 +98,14 @@ bool CameraObserver::ComputeHZR(
     state_ptr->C_ = state_cov_fixed;
 
 
-    // 这是个long long int 嗯。。。。直接当作int理解吧
-    // 这个id会在 batchImuProcessing 更新
-    // 1. 获取当前窗口内特征点数量
+    // 4. 更新特征管理器，将新来的点放入map_server
+    // 获取当前窗口内特征点数量
     int curr_feature_num = map_server.size();
     int tracked_feature_num = 0;
 
     // Add new observations for existing features or new
     // features in the map server.
-    // 2. 添加新来的点，做的花里胡哨，其实就是在现有的特征管理里面找，
+    // 4.1 添加新来的点，做的花里胡哨，其实就是在现有的特征管理里面找，
     // id已存在说明是跟踪的点，在已有的上面更新
     // id不存在说明新来的点，那么就新添加一个
     for (const auto &feature : feature_data.features_)
@@ -127,49 +129,45 @@ bool CameraObserver::ComputeHZR(
         static_cast<double>(tracked_feature_num) /
         static_cast<double>(curr_feature_num);
 
-    // Remove the features that lost track.
+    // 4.2 删掉那些不再跟踪的点
     // BTW, find the size the final Jacobian matrix and residual vector.
     int jacobian_row_size = 0;
-    // FeatureIDType 这是个long long int 嗯。。。。直接当作int理解吧
     std::vector<FeatureIDType> invalid_feature_ids(0);  // 无效点，最后要删的
     std::vector<FeatureIDType> processed_feature_ids(0);  // 待参与更新的点，用完也被无情的删掉
 
     int aa = 0, bb = 0, cc = 0, dd = 0;
     
     // 遍历所有特征管理里面的点，包括新进来的
-    for (auto iter = map_server.begin();
-            iter != map_server.end(); ++iter)
+    for (auto iter = map_server.begin(); iter != map_server.end(); ++iter)
     {
         // Rename the feature to be checked.
         // 引用，改变feature相当于改变iter->second，类似于指针的效果
         auto &feature = iter->second;
 
         // Pass the features that are still being tracked.
-        // 1. 这个点被当前状态观测到，说明这个点后面还有可能被跟踪
+        // 4.2.1 这个点被当前状态观测到，说明这个点后面还有可能被跟踪
         // 跳过这些点
-        if (feature.observations.find(cam_states_next_id_) !=
-            feature.observations.end()) {
-                aa++;
-                continue;
-            }
+        if (feature.observations.find(cam_states_next_id_) != feature.observations.end()) {
+            aa++;
+            continue;
+        }
             
 
-        // 2. 跟踪小于3帧的点，认为是质量不高的点
+        // 4.2.2 跟踪小于3帧的点，认为是质量不高的点，加入无效列表
         // 也好理解，三角化起码要两个观测，但是只有两个没有其他观测来验证
-        if (feature.observations.size() < 4)
+        if (feature.observations.size() < 3)
         {
             bb++;
             invalid_feature_ids.push_back(feature.id_);
             continue;
         }
 
-        // Check if the feature can be initialized if it
-        // has not been.
-        // 3. 如果这个特征没有被初始化，尝试去初始化
+        // 走到这里说明这个点没有被当前帧观测到，且观测帧数大于等于3
+        // 4.2.3 如果这个特征没有被初始化，尝试去初始化
         // 初始化就是三角化
         if (!feature.is_initialized)
         {
-            // 3.1 看看运动是否足够，没有足够视差或者平移小旋转多这种不符合三角化
+            // 看看运动是否足够，没有足够视差或者平移小旋转多这种不符合三角化
             // 所以就不要这些点了
             if (!feature.checkMotion(state_manager_ptr_->cam_states_))
             {
@@ -189,36 +187,37 @@ bool CameraObserver::ComputeHZR(
             }
         }
 
-        // 4. 到这里表示这个点能用于更新，所以准备下一步计算
-        // 一个观测代表一帧，一帧有左右两个观测
-        // 也就是算重投影误差时维度将会是4 * feature.observations.size()
+        // 4.2.4 到这里表示这个点能用于更新，所以准备下一步计算
+        // 一个观测代表一帧
+        // 也就是算重投影误差时维度将会是2 * feature.observations.size()
         // 这里为什么减3下面会提到
         jacobian_row_size += 2 * feature.observations.size() - 3;
         // 接下来要参与优化的点加入到这个变量中
         processed_feature_ids.push_back(feature.id_);
     }
-    // LOG(INFO) << aa << " " << bb << " " << cc << " " << dd;
-    // cout << "invalid/processed feature #: " <<
-    //   invalid_feature_ids.size() << "/" <<
-    //   processed_feature_ids.size() << endl;
+    LOG(INFO) << aa << " " << bb << " " << cc << " " << dd;
+    LOG(INFO) << "invalid/processed feature #: " <<
+      invalid_feature_ids.size() << "/" <<
+      processed_feature_ids.size() << "----" << map_server.size();
     // cout << "jacobian row #: " << jacobian_row_size << endl;
 
     // Remove the features that do not have enough measurements.
-    // 5. 删掉非法点
+    // 4.3 删掉非法点
     for (const auto &feature_id : invalid_feature_ids)
         map_server.erase(feature_id);
 
-    // Return if there is no lost feature to be processed.
+    // 4.4 使用优质的不再跟踪的点进行更新
     if (processed_feature_ids.size() == 0) {
+        // 不更新
     } else {
-        // 准备好误差相对于状态量的雅可比
-        Eigen::MatrixXd H_x = Eigen::MatrixXd::Zero(jacobian_row_size,
-                                        param_ptr_->STATE_DIM + 6 * state_manager_ptr_->cam_states_.size());
+        // 4.4.1 准备好误差相对于状态量的雅可比
+        Eigen::MatrixXd H_x = Eigen::MatrixXd::Zero(
+            jacobian_row_size, param_ptr_->STATE_DIM + 6 * state_manager_ptr_->cam_states_.size());
         Eigen::VectorXd r = Eigen::VectorXd::Zero(jacobian_row_size);
         int stack_cntr = 0;
 
         // Process the features which lose track.
-        // 6. 处理特征点
+        // 4.4.2 处理特征点
         for (const auto &feature_id : processed_feature_ids)
         {
             auto &feature = map_server[feature_id];
@@ -229,10 +228,10 @@ bool CameraObserver::ComputeHZR(
 
             Eigen::MatrixXd H_xj;
             Eigen::VectorXd r_j;
-            // 6.1 计算雅可比，计算重投影误差
+            // 计算雅可比，计算重投影误差
             FeatureJacobian(feature.id_, cam_state_ids, H_xj, r_j);
 
-            // 6.2 卡方检验，剔除错误点，并不是所有点都用
+            // 卡方检验，剔除错误点，并不是所有点都用
             if (GatingTest(H_xj, r_j, cam_state_ids.size() - 1, state_ptr->C_))
             {
                 H_x.block(stack_cntr, 0, H_xj.rows(), H_xj.cols()) = H_xj;
@@ -243,31 +242,33 @@ bool CameraObserver::ComputeHZR(
             // Put an upper bound on the row size of measurement Jacobian,
             // which helps guarantee the executation time.
             // 限制最大更新量
-            if (stack_cntr > 1500)
-                break;
+            // if (stack_cntr > 1500)
+            //     break;
         }
 
         // resize成实际大小
         H_x.conservativeResize(stack_cntr, H_x.cols());
         r.conservativeResize(stack_cntr);
 
+        LOG(INFO) << "Camera states removed1: stack_cntr: " << stack_cntr
+            << "," << processed_feature_ids.size();
         // Perform the measurement update step.
-        // 7. 使用误差及雅可比更新状态
+        // 4.4.3  使用误差及雅可比更新状态
         MeasurementUpdate(H_x, r, state_ptr);
 
         // Remove all processed features from the map.
-        // 8. 删除用完的点
+        // 4.4.4 删除用完的点
         for (const auto &feature_id : processed_feature_ids)
             map_server.erase(feature_id);
     }
 
-    // 数量还不到该删的程度，配置文件里面是20个
-    if (state_manager_ptr_->cam_states_.size() >= param_ptr_->WINDOW_SIZE) {
+    // 5. 使用删除帧更新
+    if (state_manager_ptr_->cam_states_.size() > param_ptr_->WINDOW_SIZE) {
         // Find two camera states to be removed.
-        // 1. 找出该删的相机状态的id，两个
+        // 5.1 找出该删的相机状态的id，两个
         std::vector<int> rm_cam_state_ids(0);
         // Move the iterator to the key position.
-        // 1. 找到倒数第四个相机状态，作为关键状态
+        // 5.1.1 找到倒数第四个相机状态，作为关键状态
         auto key_cam_state_iter = state_manager_ptr_->cam_states_.end();
         for (int i = 0; i < 4; ++i)
             --key_cam_state_iter;
@@ -280,25 +281,27 @@ bool CameraObserver::ComputeHZR(
         auto first_cam_state_iter = state_manager_ptr_->cam_states_.begin();
 
         // Pose of the key camera state.
-        // 2. 关键状态的位姿
+        // 5.1.2 关键状态的位姿
         const Eigen::Vector3d key_position =
             key_cam_state_iter->second->twc_;
-        const Eigen::Matrix3d key_rotation = key_cam_state_iter->second->Rwc_.toRotationMatrix();
+        const Eigen::Matrix3d key_rotation =
+            key_cam_state_iter->second->Rwc_.toRotationMatrix();
 
         // Mark the camera states to be removed based on the
         // motion between states.
-        // 3. 遍历两次，必然删掉两个状态，有可能是相对新的，有可能是最旧的
+        // 5.1.3 遍历两次，必然删掉两个状态，有可能是相对新的，有可能是最旧的
         // 但是永远删不到最新的
         for (int i = 0; i < 2; ++i)
         {
             // 从倒数第三个开始
             const Eigen::Vector3d position =
                 cam_state_iter->second->twc_;
-            const Eigen::Matrix3d rotation = cam_state_iter->second->Rwc_.toRotationMatrix();
+            const Eigen::Matrix3d rotation =
+                cam_state_iter->second->Rwc_.toRotationMatrix();
 
             // 计算相对于关键相机状态的平移与旋转
             double distance = (position - key_position).norm();
-            double angle = Eigen::AngleAxisd(rotation * key_rotation.transpose()).angle();
+            double angle = Eigen::AngleAxisd(rotation.transpose() * key_rotation).angle();
 
             // 判断大小以及跟踪率，就是cam_state_iter这个状态与关键相机状态的相似度，
             // 且当前的点跟踪率很高
@@ -307,25 +310,28 @@ bool CameraObserver::ComputeHZR(
             // if (angle < rotation_threshold &&
             //     distance < translation_threshold &&
             //     tracking_rate > tracking_rate_threshold)
+            LOG(INFO) << "OLDEST cam state id: " << first_cam_state_iter->first;
             if (angle < 0.2618 &&
-                distance < 4 &&
-                tracking_rate > 0.3)
+                distance < 0.4 &&
+                tracking_rate > 0.6)
             {
+                LOG(INFO) << "Removing cam state id: " << cam_state_iter->first;
                 rm_cam_state_ids.push_back(cam_state_iter->first);
                 ++cam_state_iter;
             }
             else
             {
+                LOG(INFO) << "Removing oldest cam state id: " << first_cam_state_iter->first;
                 rm_cam_state_ids.push_back(first_cam_state_iter->first);
                 ++first_cam_state_iter;
             }
         }
         // Sort the elements in the output vector.
-        // 4. 排序
+        // 5.1.4 排序
         sort(rm_cam_state_ids.begin(), rm_cam_state_ids.end());
 
         // Find the size of the Jacobian matrix.
-        // 2. 找到删减帧涉及的观测雅可比大小
+        // 5.2 找到删减帧涉及的观测雅可比大小
         jacobian_row_size = 0;
         int aa = 0, bb = 0, cc = 0, dd = 0, ee = 0;
         std::vector<Eigen::Vector3d> map_points;
@@ -447,6 +453,8 @@ bool CameraObserver::ComputeHZR(
 
         // Perform measurement update.
         // 4. 用待删去的这些观测更新一下
+        LOG(INFO) << "Camera states removed2: "
+                  << rm_cam_state_ids.size() << ", stack_cntr: " << stack_cntr;
         MeasurementUpdate(H_x, r, state_ptr);
 
         // 5. 直接删掉对应的行列，直接干掉
