@@ -24,18 +24,20 @@
 static constexpr double ZERO_VELOCITY_GYR_THRESHOLD = 0.002;
 static constexpr double ZERO_VELOCITY_ACC_THRESHOLD = 0.1;
 
-
-class Initializers {
+class Initializers
+{
 public:
     Initializers(std::shared_ptr<Parameter> param_ptr, std::shared_ptr<DataManager> data_manager_ptr,
-        const std::shared_ptr<CooTrans> &coo_trans_ptr,
-        std::shared_ptr<StateManager> state_manager_ptr,
-        std::shared_ptr<Viewer> viewer_ptr = nullptr) {
+                 const std::shared_ptr<CooTrans> &coo_trans_ptr,
+                 std::shared_ptr<StateManager> state_manager_ptr,
+                 std::shared_ptr<Viewer> viewer_ptr = nullptr)
+    {
         param_ptr_ = param_ptr;
         data_manager_ptr_ = data_manager_ptr;
         state_manager_ptr_ = state_manager_ptr;
         coo_trans_ptr_ = coo_trans_ptr;
-        if (param_ptr->use_camera_) {
+        if (param_ptr->use_camera_)
+        {
             // 只有纯IMU模式下才会用到视觉初始化，因为只有他使用了加速度计
             predictor_ptr_ = std::make_shared<IMUPredictor>(
                 state_manager_ptr_, param_ptr_, data_manager_ptr_, viewer_ptr);
@@ -43,22 +45,26 @@ public:
         }
     }
 
-    bool Initialization() {
+    bool Initialization()
+    {
         if (param_ptr_->use_gnss_)
             return GNSSInitialization();
         else if (param_ptr_->use_camera_)
             return VisualInitialization();
-        else {
+        else
+        {
             LOG(INFO) << "没有可用于初始化的传感器，不做初始化";
             return true;
         }
     }
     // MSCKF特征管理
     MapServer map_server_;
+    // VINS 特征管理
+    std::shared_ptr<VinsFeatureManager> vins_feature_manager_ptr_;
 private:
-
     template <typename T>
-    bool DetectZeroVelocity(const std::vector<T> &data_buffer, std::vector<double> &average) {
+    bool DetectZeroVelocity(const std::vector<T> &data_buffer, std::vector<double> &average)
+    {
 
         auto size = static_cast<double>(data_buffer.size());
         double size_invert = 1.0 / size;
@@ -70,7 +76,8 @@ private:
 
         average.resize(6);
         average[0] = average[1] = average[2] = average[3] = average[4] = average[5] = 0;
-        for (const auto &data : data_buffer) {
+        for (const auto &data : data_buffer)
+        {
             average[0] += data.w_.x();
             average[1] += data.w_.y();
             average[2] += data.w_.z();
@@ -87,7 +94,8 @@ private:
         average[5] *= size_invert;
 
         sum[0] = sum[1] = sum[2] = sum[3] = sum[4] = sum[5] = 0;
-        for (const auto &data : data_buffer) {
+        for (const auto &data : data_buffer)
+        {
             sum[0] += (data.w_.x() - average[0]) * (data.w_.x() - average[0]);
             sum[1] += (data.w_.y() - average[1]) * (data.w_.y() - average[1]);
             sum[2] += (data.w_.z() - average[2]) * (data.w_.z() - average[2]);
@@ -106,31 +114,35 @@ private:
 
         if ((std[0] < ZERO_VELOCITY_GYR_THRESHOLD) && (std[1] < ZERO_VELOCITY_GYR_THRESHOLD) &&
             (std[2] < ZERO_VELOCITY_GYR_THRESHOLD) && (std[3] < ZERO_VELOCITY_ACC_THRESHOLD) &&
-            (std[4] < ZERO_VELOCITY_ACC_THRESHOLD) && (std[5] < ZERO_VELOCITY_ACC_THRESHOLD)) {
+            (std[4] < ZERO_VELOCITY_ACC_THRESHOLD) && (std[5] < ZERO_VELOCITY_ACC_THRESHOLD))
+        {
             return true;
         }
         return false;
     }
-    
-    bool DetectZeroVelocity(const std::vector<WheelData> &data_buffer) {
+
+    bool DetectZeroVelocity(const std::vector<WheelData> &data_buffer)
+    {
         double data_number = static_cast<double>(data_buffer.size()) * 2.0;
         double vel_sum = 0.0;
-        for (auto data : data_buffer) {
+        for (auto data : data_buffer)
+        {
             vel_sum += (abs(data.lv_) + abs(data.rv_));
         }
-    
+
         // 尽量速度快点，gnss远点
         if (vel_sum / data_number < 0.5)
             return true;
         return false;
     }
 
-
-    bool GNSSInitialization() {
+    bool GNSSInitialization()
+    {
         GNSSData cur_gnss_data;
         if (!data_manager_ptr_->GetLastGNSSData(cur_gnss_data, last_gnss_data_.time_))
             return false;
-        if (last_gnss_data_.time_ < 0.0) {
+        if (last_gnss_data_.time_ < 0.0)
+        {
             coo_trans_ptr_->SetECEFOw(cur_gnss_data.lat_, cur_gnss_data.lon_, cur_gnss_data.h_);
             last_gnss_data_ = cur_gnss_data;
             return false;
@@ -145,19 +157,21 @@ private:
         // bool is_has_zero_velocity = false;
         bool is_zero_velocity = false;
 
-        if (param_ptr_->state_type_ != 1) {
+        if (param_ptr_->state_type_ != 1)
+        {
             // 模式2可以考虑增加轮速判断
             std::vector<IMUData> datas;
             data_manager_ptr_->GetDatasBetween(datas, last_gnss_data_.time_, cur_gnss_data.time_);
 
-            if (datas.size() < 50) {
+            if (datas.size() < 50)
+            {
                 return false;
             }
 
             // 打印所有 IMUData
             // LOG(INFO) << "IMU datas: " << std::to_string(last_gnss_data_.time_) << " " << std::to_string(cur_gnss_data.time_);
             // for (const auto& d : datas) {
-            //     LOG(INFO) << "t=" << std::to_string(d.time_) 
+            //     LOG(INFO) << "t=" << std::to_string(d.time_)
             //         << " a=[" << d.a_.transpose() << "] w=[" << d.w_.transpose() << "]";
             // }
             // 从零速开始
@@ -177,10 +191,13 @@ private:
             //         << ", pitch " << initatt[1];
             //     is_has_zero_velocity = true;
             // }
-        } else {
+        }
+        else
+        {
             std::vector<WheelData> datas;
             data_manager_ptr_->GetDatasBetween(datas, last_gnss_data_.time_, cur_gnss_data.time_);
-            if (datas.size() < 50) {
+            if (datas.size() < 50)
+            {
                 return false;
             }
 
@@ -189,10 +206,11 @@ private:
 
         // 非零速状态
         // Initialization conditions
-        if (!is_zero_velocity) {
-            Eigen::Vector3d vel = coo_trans_ptr_->getENH(cur_gnss_data.lat_, cur_gnss_data.lon_, cur_gnss_data.h_)
-                - coo_trans_ptr_->getENH(last_gnss_data_.lat_, last_gnss_data_.lon_, last_gnss_data_.h_);
-            if (vel.norm() < 0.5) {
+        if (!is_zero_velocity)
+        {
+            Eigen::Vector3d vel = coo_trans_ptr_->getENH(cur_gnss_data.lat_, cur_gnss_data.lon_, cur_gnss_data.h_) - coo_trans_ptr_->getENH(last_gnss_data_.lat_, last_gnss_data_.lon_, last_gnss_data_.h_);
+            if (vel.norm() < 0.5)
+            {
                 LOG(INFO) << "速度太低 重新计算：" << vel.norm();
                 // 重置
                 last_gnss_data_.time_ = -1.0;
@@ -206,8 +224,9 @@ private:
 
             initatt[2] = atan2(vel.y(), vel.x());
             LOG(INFO) << "Initialized heading from GNSS as " << initatt[2] * R2D << " deg";
-
-        } else {
+        }
+        else
+        {
             LOG(INFO) << "GNSS 初始化必须运动，现在处于静止，请运动";
             // 重置
             last_gnss_data_.time_ = -1.0;
@@ -224,19 +243,22 @@ private:
         cur_state_ptr->C_ = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM);
         cur_state_ptr->C_.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->POSI_INDEX) = Eigen::Matrix3d::Identity() * 0.0025;
         cur_state_ptr->C_.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.0025;
-        if (param_ptr_->state_type_ == 0) {
+        if (param_ptr_->state_type_ == 0)
+        {
             cur_state_ptr->bg_ = bg;
             cur_state_ptr->Vw_ = velocity;
-            
+
             cur_state_ptr->C_.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->VEL_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.0025;
             cur_state_ptr->C_.block<3, 3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
             cur_state_ptr->C_.block<3, 3>(param_ptr_->ACC_BIAS_INDEX_STATE_, param_ptr_->ACC_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
-        } else if (param_ptr_->state_type_ == 2) {
+        }
+        else if (param_ptr_->state_type_ == 2)
+        {
             cur_state_ptr->bg_ = bg;
 
             cur_state_ptr->C_.block<3, 3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
         }
-        
+
         state_manager_ptr_->PushState(cur_state_ptr);
         LOG(INFO) << "GNSS 初始化完毕";
         LOG(INFO) << "初始化状态量：";
@@ -245,13 +267,16 @@ private:
         LOG(INFO) << "速度: " << cur_state_ptr->Vw_.transpose();
         LOG(INFO) << "加速度零偏: " << cur_state_ptr->ba_.transpose();
         LOG(INFO) << "陀螺零偏: " << cur_state_ptr->bg_.transpose();
-        LOG(INFO) << "旋转矩阵:\n" << cur_state_ptr->Rwb_;
+        LOG(INFO) << "旋转矩阵:\n"
+                  << cur_state_ptr->Rwb_;
         return true;
     }
 
     // VINS 视觉惯性初始化
-    bool VisualInitialization() {
-        if (param_ptr_->state_type_ != 0) {
+    bool VisualInitialization()
+    {
+        if (param_ptr_->state_type_ != 0)
+        {
             LOG(INFO) << "无需视觉惯性初始化";
 
             std::shared_ptr<State> cur_state_ptr = std::make_shared<State>();
@@ -259,7 +284,8 @@ private:
             cur_state_ptr->C_ = Eigen::MatrixXd::Identity(param_ptr_->STATE_DIM, param_ptr_->STATE_DIM);
             cur_state_ptr->C_.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->POSI_INDEX) = Eigen::Matrix3d::Identity() * 0.0025;
             cur_state_ptr->C_.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.0025;
-            if (param_ptr_->state_type_ == 2) {
+            if (param_ptr_->state_type_ == 2)
+            {
                 cur_state_ptr->C_.block<3, 3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
             }
             return true;
@@ -269,7 +295,8 @@ private:
         FeatureData feature_data;
         if (data_manager_ptr_->GetNewFeatureData(feature_data, last_feature_data_.time_))
         {
-            if(!state_manager_ptr_->GetNearestState(last_state)) {
+            if (!state_manager_ptr_->GetNearestState(last_state))
+            {
                 // 第一帧
                 std::shared_ptr<State> cur_state_ptr = std::make_shared<State>();
                 cur_state_ptr->time_ = feature_data.time_;
@@ -285,10 +312,11 @@ private:
                 std::vector<IMUData> datas;
                 data_manager_ptr_->GetDatasBetween(datas, last_state->time_, feature_data.time_);
                 std::vector<double> average;
-                // LOG(INFO) << "Visual Initialization between " << std::to_string(last_state->time_) 
+                // LOG(INFO) << "Visual Initialization between " << std::to_string(last_state->time_)
                 //     << " and " << std::to_string(feature_data.time_) << " with dt " << std::to_string(dt)
                 //     << " and IMU datas " << std::to_string(datas.size());
-                if (datas.empty() || DetectZeroVelocity(datas, average)) {
+                if (datas.empty() || DetectZeroVelocity(datas, average))
+                {
                     ResetVisualInitialization();
                     return false;
                 }
@@ -300,36 +328,42 @@ private:
 
                 int start_frame_idx = state_manager_ptr_->GetAllStates().size();
                 LOG(INFO) << "Visual Initialization add new state at time " << std::to_string(feature_data.time_)
-                    << ", frame index " << std::to_string(start_frame_idx)
-                    << ", point num: " << feature_data.features_.size();
+                          << ", frame index " << std::to_string(start_frame_idx)
+                          << ", point num: " << feature_data.features_.size();
                 vins_feature_manager_ptr_->addFeatureCheckParallax(
                     start_frame_idx, feature_data.features_, last_state);
                 state_manager_ptr_->PushState(new_state);
                 last_state->feature_data_ = feature_data;
             }
-            
+
             last_feature_data_ = feature_data;
         }
 
-        if (state_manager_ptr_->GetAllStates().size() > param_ptr_->WINDOW_SIZE) {
+        if (state_manager_ptr_->GetAllStates().size() > param_ptr_->WINDOW_SIZE)
+        {
             LOG(INFO) << "凑够了初始化帧数";
-            if (InitialStructure()) {
+            if (InitialStructure())
+            {
                 LOG(INFO) << "视觉惯性初始化完毕";
                 return true;
-            } else {
+            }
+            else
+            {
                 ResetVisualInitialization();
                 return false;
             }
-        } else {
-           return false; 
+        }
+        else
+        {
+            return false;
         }
     }
 
     /**
      * @brief VIO初始化，将滑窗中的P V Q恢复到第0帧并且和重力对齐
-     * 
-     * @return true 
-     * @return false 
+     *
+     * @return true
+     * @return false
      */
     bool InitialStructure()
     {
@@ -343,7 +377,7 @@ private:
             ImageFrame imageframe(
                 all_states[i]->feature_data_.features_, all_states[i]->time_);
             imageframe.pre_integration =
-                dynamic_cast<IMUPreintegration*>(all_states[i]->preint_.get());
+                dynamic_cast<IMUPreintegration *>(all_states[i]->preint_.get());
             // 这里就是简单的把图像和预积分绑定在一起，这里预积分就是两帧之间的，滑窗中实际上是两个KF之间的
             // 实际上是准备用来初始化的相关数据
             all_image_frame.insert(std::make_pair(all_states[i]->time_, imageframe));
@@ -355,12 +389,12 @@ private:
         Eigen::Quaterniond Q[frame_count];
         Eigen::Vector3d T[frame_count];
         std::map<int, Eigen::Vector3d> sfm_tracked_points;
-        std::vector<SFMFeature> sfm_f;   // 保存每个特征点的信息
+        std::vector<SFMFeature> sfm_f; // 保存每个特征点的信息
         // 遍历所有的特征点
         for (auto &it_per_id : vins_feature_manager_ptr_->feature)
         {
-            int imu_j = it_per_id.start_frame - 1;  // 这个跟imu无关，就是存储观测特征点的帧的索引
-            SFMFeature tmp_feature; // 用来后续做sfm
+            int imu_j = it_per_id.start_frame - 1; // 这个跟imu无关，就是存储观测特征点的帧的索引
+            SFMFeature tmp_feature;                // 用来后续做sfm
             tmp_feature.state = false;
             tmp_feature.id = it_per_id.feature_id;
             for (auto &it_per_frame : it_per_id.feature_per_frame)
@@ -372,7 +406,7 @@ private:
                     std::make_pair(imu_j, Eigen::Vector2d{pts_j.x(), pts_j.y()}));
             }
             sfm_f.push_back(tmp_feature);
-        } 
+        }
         Eigen::Matrix3d relative_R;
         Eigen::Vector3d relative_T;
         int l;
@@ -383,13 +417,15 @@ private:
         }
         GlobalSFM sfm;
         // 进行sfm的求解
-        if(!sfm.construct(frame_count, Q, T, l,
-                relative_R, relative_T,
-                sfm_f, sfm_tracked_points))
+        if (!sfm.construct(frame_count, Q, T, l,
+                           relative_R, relative_T,
+                           sfm_f, sfm_tracked_points))
         {
             LOG(INFO) << "global SFM failed!";
             return false;
-        } else {
+        }
+        else
+        {
             LOG(INFO) << "global SFM success!";
         }
 
@@ -420,10 +456,10 @@ private:
             Bgs[i].setZero();
         }
 
-        //solve scale
+        // solve scale
         bool result = VisualIMUAlignment(
             param_ptr_, all_image_frame, Bgs, g, x);
-        if(!result)
+        if (!result)
         {
             LOG(INFO) << "solve g failed!";
             return false;
@@ -444,15 +480,16 @@ private:
             all_image_frame[all_states[i]->time_].is_key_frame = true;
         }
 
-        Eigen::VectorXd dep = vins_feature_manager_ptr_->getDepthVector();  // 根据有效特征点数初始化这个动态向量
+        Eigen::VectorXd dep = vins_feature_manager_ptr_->getDepthVector(); // 根据有效特征点数初始化这个动态向量
         for (int i = 0; i < dep.size(); i++)
-            dep[i] = -1;    // 深度预设都是-1
-        vins_feature_manager_ptr_->clearDepth(dep);  // 特征管理器把所有的特征点逆深度也设置为-1
+            dep[i] = -1;                            // 深度预设都是-1
+        vins_feature_manager_ptr_->clearDepth(dep); // 特征管理器把所有的特征点逆深度也设置为-1
 
-        //triangulat on cam pose , no tic
+        // triangulat on cam pose , no tic
         Eigen::Vector3d TIC_TMP[1];
         Eigen::Matrix3d RIC[1];
-        for(int i = 0; i < 1; i++) {
+        for (int i = 0; i < 1; i++)
+        {
             TIC_TMP[i].setZero();
             RIC[i] = param_ptr_->Rbc_;
         }
@@ -474,7 +511,7 @@ private:
         // 把求解出来KF的速度赋给滑窗中
         for (frame_i = all_image_frame.begin(); frame_i != all_image_frame.end(); frame_i++)
         {
-            if(frame_i->second.is_key_frame)
+            if (frame_i->second.is_key_frame)
             {
                 kv++;
                 // 当时求得速度是imu系，现在转到world系
@@ -490,11 +527,11 @@ private:
             it_per_id.estimated_depth *= s;
         }
         // 所有的P V Q全部对齐到第0帧的，同时和对齐到重力方向
-        Eigen::Matrix3d R0 = Converter::g2R(g);  // g是枢纽帧下的重力方向，得到R_w_j
-        double yaw = Converter::R2ypr(R0 * Rs[0]).x();    // Rs[0]实际上是R_j_0
-        R0 = Converter::ypr2R(Eigen::Vector3d{-yaw, 0, 0}) * R0;  // 第一帧yaw赋0
+        Eigen::Matrix3d R0 = Converter::g2R(g);                  // g是枢纽帧下的重力方向，得到R_w_j
+        double yaw = Converter::R2ypr(R0 * Rs[0]).x();           // Rs[0]实际上是R_j_0
+        R0 = Converter::ypr2R(Eigen::Vector3d{-yaw, 0, 0}) * R0; // 第一帧yaw赋0
         g = R0 * g;
-        //Eigen::Matrix3d rot_diff = R0 * Rs[0].transpose();
+        // Eigen::Matrix3d rot_diff = R0 * Rs[0].transpose();
         Eigen::Matrix3d rot_diff = R0;
         for (int i = 0; i < frame_count; i++)
         {
@@ -525,14 +562,17 @@ private:
         LOG(INFO) << "速度: " << cur_state_ptr->Vw_.transpose();
         LOG(INFO) << "加速度零偏: " << cur_state_ptr->ba_.transpose();
         LOG(INFO) << "陀螺零偏: " << cur_state_ptr->bg_.transpose();
-        LOG(INFO) << "旋转矩阵:\n" << cur_state_ptr->Rwb_;
-        if (param_ptr_->fusion_model_ == 0) {
+        LOG(INFO) << "旋转矩阵:\n"
+                  << cur_state_ptr->Rwb_;
+        if (param_ptr_->fusion_model_ == 0)
+        {
             // 初始化填充cam_states_和map_server
             // 只保留第二个帧以及之后的
             state_manager_ptr_->cam_states_.clear();
 
             // 填充cam_states_
-            for (int i = 0; i < frame_count; ++i) {
+            for (int i = 0; i < frame_count; ++i)
+            {
                 auto cam_state = std::make_shared<CamState>(i);
                 cam_state->time = all_states[i]->time_;
                 cam_state->Rwc_ = all_states[i]->Rwb_ * param_ptr_->Rbc_;
@@ -546,25 +586,28 @@ private:
             cur_state_ptr->C_ = Eigen::MatrixXd::Identity(state_dim, state_dim);
 
             // 主状态部分（前15维）赋初值
-            cur_state_ptr->C_.block<3,3>(param_ptr_->POSI_INDEX, param_ptr_->POSI_INDEX) = Eigen::Matrix3d::Identity() * 0.0025;
-            cur_state_ptr->C_.block<3,3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.0025;
-            cur_state_ptr->C_.block<3,3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->VEL_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.0025;
-            cur_state_ptr->C_.block<3,3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
-            cur_state_ptr->C_.block<3,3>(param_ptr_->ACC_BIAS_INDEX_STATE_, param_ptr_->ACC_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
+            cur_state_ptr->C_.block<3, 3>(param_ptr_->POSI_INDEX, param_ptr_->POSI_INDEX) = Eigen::Matrix3d::Identity() * 0.0025;
+            cur_state_ptr->C_.block<3, 3>(param_ptr_->ORI_INDEX_STATE_, param_ptr_->ORI_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.0025;
+            cur_state_ptr->C_.block<3, 3>(param_ptr_->VEL_INDEX_STATE_, param_ptr_->VEL_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.0025;
+            cur_state_ptr->C_.block<3, 3>(param_ptr_->GYRO_BIAS_INDEX_STATE_, param_ptr_->GYRO_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
+            cur_state_ptr->C_.block<3, 3>(param_ptr_->ACC_BIAS_INDEX_STATE_, param_ptr_->ACC_BIAS_INDEX_STATE_) = Eigen::Matrix3d::Identity() * 0.01;
 
             // 每个cam_state的协方差（后6N维），可设置为较大初值
-            for (int i = 0; i < N; ++i) {
+            for (int i = 0; i < N; ++i)
+            {
                 int idx = 15 + i * 6;
-                cur_state_ptr->C_.block<6,6>(idx, idx) = Eigen::Matrix<double,6,6>::Identity() * 0.01;
+                cur_state_ptr->C_.block<6, 6>(idx, idx) = Eigen::Matrix<double, 6, 6>::Identity() * 0.01;
             }
 
             // 填充map_server，只保留三角化成功的点
             int valid_feature_count = 0;
             std::ofstream ofs("sfm_points2.txt");
-            for (const auto& feat : vins_feature_manager_ptr_->feature) {
-                if (feat.estimated_depth > 0) {
+            for (const auto &feat : vins_feature_manager_ptr_->feature)
+            {
+                if (feat.estimated_depth > 0)
+                {
                     // 取第一个观测帧
-                    const auto& first_frame = feat.feature_per_frame[0];
+                    const auto &first_frame = feat.feature_per_frame[0];
                     // 归一化相机坐标
                     Eigen::Vector3d uv = first_frame.point;
                     // 相机坐标系下三维点
@@ -577,11 +620,11 @@ private:
 
                     MsckfFeature msckf_feat(feat.feature_id, param_ptr_);
                     msckf_feat.position = position;
-                    ofs << feat.feature_id << " " << position.x() << " " << position.y() << " " << position.z() << " " << 
-                        feat.estimated_depth << " " << uv.transpose() << " " << first_obs_frame->twc_.y() << " " << first_obs_frame->twc_.z() << "\n";
+                    ofs << feat.feature_id << " " << position.x() << " " << position.y() << " " << position.z() << " " << feat.estimated_depth << " " << uv.transpose() << " " << first_obs_frame->twc_.y() << " " << first_obs_frame->twc_.z() << "\n";
                     msckf_feat.is_initialized = true;
                     // 观测填充
-                    for (int idx = 0; idx < feat.feature_per_frame.size(); idx++) {
+                    for (int idx = 0; idx < feat.feature_per_frame.size(); idx++)
+                    {
                         int frame_idx = idx + feat.start_frame;
                         msckf_feat.observations[frame_idx] = feat.feature_per_frame[idx].point.head<2>();
                     }
@@ -591,6 +634,17 @@ private:
                 }
             }
             LOG(INFO) << "Map server initialized with " << valid_feature_count << " features.";
+        } else {
+          state_manager_ptr_->PopFrontState();
+          // 同步更新视觉特征管理器（滑窗后修正 start_frame / feature_per_frame）
+
+          // 采用“丢最老帧”的滑窗策略，使用 removeBackShiftDepth
+          // marg_R, marg_P 为被移除帧的位姿；new_R, new_P 为新的最老帧位姿
+          const auto &marg_state = all_states.front();
+          const auto &new_state = all_states[1];
+          vins_feature_manager_ptr_->removeBackShiftDepth(
+              marg_state->Rwb_.toRotationMatrix(), marg_state->twb_,
+              new_state->Rwb_.toRotationMatrix(), new_state->twb_);
         }
         return true;
     }
@@ -599,11 +653,11 @@ private:
      * @brief 寻找滑窗内一个帧作为枢纽帧，要求和最后一帧既有足够的共视也要有足够的视差
      *        这样其他帧都对齐到这个枢纽帧上
      *        得到T_l_last
-     * @param[in] relative_R 
-     * @param[in] relative_T 
-     * @param[in] l 
-     * @return true 
-     * @return false 
+     * @param[in] relative_R
+     * @param[in] relative_T
+     * @param[in] l
+     * @return true
+     * @return false
      */
 
     bool RelativePose(Eigen::Matrix3d &relative_R, Eigen::Vector3d &relative_T, int &l)
@@ -625,21 +679,21 @@ private:
                 {
                     Eigen::Vector2d pts_0(corres[j].first(0), corres[j].first(1));
                     Eigen::Vector2d pts_1(corres[j].second(0), corres[j].second(1));
-                    double parallax = (pts_0 - pts_1).norm();   // 计算了视差
+                    double parallax = (pts_0 - pts_1).norm(); // 计算了视差
                     sum_parallax = sum_parallax + parallax;
-
                 }
                 // 计算每个特征点的平均视差
                 average_parallax = 1.0 * sum_parallax / int(corres.size());
                 // LOG(INFO) << "find frame " << i << " has enough correspondance " << corres.size()
                 //           << " average parallax " << average_parallax * 460;
                 // 有足够的视差在通过本质矩阵恢复第i帧和最后一帧之间的 R t T_i_last
-                if(average_parallax * 460 > 30 && m_estimator.solveRelativeRT(corres, relative_R, relative_T))
+                if (average_parallax * 460 > 30 && m_estimator.solveRelativeRT(corres, relative_R, relative_T))
                 {
                     l = i;
-                    LOG(INFO) << "average_parallax " << average_parallax * 460 << " choose l " << l <<
-                        " and newest frame to triangulate the whole structure";
-                    LOG(INFO) << "relative_R: " << std::endl << relative_R << std::endl <<  relative_T.transpose();
+                    LOG(INFO) << "average_parallax " << average_parallax * 460 << " choose l " << l << " and newest frame to triangulate the whole structure";
+                    LOG(INFO) << "relative_R: " << std::endl
+                              << relative_R << std::endl
+                              << relative_T.transpose();
                     return true;
                 }
             }
@@ -647,7 +701,8 @@ private:
         return false;
     }
 
-    void ResetVisualInitialization() {
+    void ResetVisualInitialization()
+    {
         state_manager_ptr_->Reset();
         vins_feature_manager_ptr_->clearState();
         last_feature_data_.time_ = -1.0;
@@ -656,7 +711,6 @@ private:
     std::shared_ptr<DataManager> data_manager_ptr_;
     std::shared_ptr<StateManager> state_manager_ptr_;
     std::shared_ptr<Predictor> predictor_ptr_;
-    std::shared_ptr<VinsFeatureManager> vins_feature_manager_ptr_;
     std::mutex states_mtx_;
     std::shared_ptr<Parameter> param_ptr_;
 

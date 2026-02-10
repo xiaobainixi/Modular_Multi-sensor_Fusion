@@ -57,6 +57,17 @@ public:
             Propagate(data_buf_[i]);
     }
 
+    void Merge(const WheelIMUPreintegration &curr)
+    {
+        for (const auto &wheel_imu_data : curr.data_buf_)
+        {
+            if (wheel_imu_data.time_ <= wheel_imu_data_0_.time_)
+                continue;
+            data_buf_.push_back(wheel_imu_data);
+            Propagate(wheel_imu_data);
+        }
+    }
+
     // IMU轮速联合预积分递推
     // 模型假设：平面差速驱动，只积分 x 方向线速度；误差状态采用右乘扰动，状态顺序 [p(3), so3(3) bg(3)]
     // 协方差离散化：X_k+1 = F X_k + G w，使用一阶线性化，过程噪声映射为 V (此处命名保持与其它预积分一致)

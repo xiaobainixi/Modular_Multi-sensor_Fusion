@@ -450,5 +450,5 @@ class ProjectionFactor : public ceres::SizedCostFunction<2, 3, 4, 3, 4, 1>
     // 观测数据
     Eigen::Vector3d pts_i_, pts_j_;
     std::shared_ptr<Parameter> param_ptr_;
-    Eigen::Matrix2d sqrt_info = 640 / 1.5 * Eigen::Matrix2d::Identity();
+    Eigen::Matrix2d sqrt_info = 1000 * Eigen::Matrix2d::Identity();
 };

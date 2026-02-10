@@ -5,57 +5,68 @@
 #include <memory>
 #include <unordered_map>
 
-class MarginalizationInfo {
+class MarginalizationInfo
+{
 
 public:
     MarginalizationInfo() = default;
 
-    ~MarginalizationInfo() {
+    ~MarginalizationInfo()
+    {
         for (auto &block : parameter_block_data_)
             delete[] block.second;
     }
 
-    bool isValid() const {
+    bool isValid() const
+    {
         return isvalid_;
     }
 
-    static int localSize(int size) {
+    static int localSize(int size)
+    {
         return size == POSE_GLOBAL_SIZE ? POSE_LOCAL_SIZE : size;
     }
 
-    static int globalSize(int size) {
+    static int globalSize(int size)
+    {
         return size == POSE_LOCAL_SIZE ? POSE_GLOBAL_SIZE : size;
     }
 
-    void addResidualBlockInfo(const std::shared_ptr<ResidualBlockInfo> &blockinfo) {
+    void addResidualBlockInfo(const std::shared_ptr<ResidualBlockInfo> &blockinfo)
+    {
         factors_.push_back(blockinfo);
 
         // 边缘化的参数块的地址和大小
         const auto &parameter_blocks = blockinfo->parameterBlocks();
-        const auto &block_sizes      = blockinfo->parameterBlockSizes();
+        const auto &block_sizes = blockinfo->parameterBlockSizes();
 
         // 记录对应参数的parameters_id 与 block_size
-        for (size_t k = 0; k < parameter_blocks.size(); k++) {
+        for (size_t k = 0; k < parameter_blocks.size(); k++)
+        {
             parameter_block_size_[parameters_ids_[reinterpret_cast<long>(parameter_blocks[k])]] = block_sizes[k];
         }
 
         // parameter_block_index_  此处优先记录了被边缘化的参数的parameters_id
         // 被边缘化的参数, 先加入表中以进行后续的排序
         // parameters_id 0
-        for (int index : blockinfo->marginalizationParametersIndex()) {
+        for (int index : blockinfo->marginalizationParametersIndex())
+        {
             parameter_block_index_[parameters_ids_[reinterpret_cast<long>(parameter_blocks[index])]] = 0;
         }
     }
 
-    void updateParamtersIds(const std::unordered_map<long, long> &parameters_ids) {
+    void updateParamtersIds(const std::unordered_map<long, long> &parameters_ids)
+    {
         parameters_ids_ = parameters_ids;
     }
 
-    bool marginalization() {
+    bool marginalization()
+    {
 
         // 对边缘化的参数和保留的参数按照local size分配索引
         // 边缘化参数位于前部分，保留参数位于后部分
-        if (!updateParameterBlocksIndex()) {
+        if (!updateParameterBlocksIndex())
+        {
             isvalid_ = false;
 
             // 释放内存
@@ -82,7 +93,8 @@ public:
         return true;
     }
 
-    std::vector<double *> getParameterBlocks(std::unordered_map<long, double *> &address) {
+    std::vector<double *> getParameterBlocks(std::unordered_map<long, double *> &address)
+    {
         std::vector<double *> remained_block_addr;
 
         remained_block_data_.clear();
@@ -90,9 +102,11 @@ public:
         remained_block_size_.clear();
 
         // 所有边缘化中的参数块的id : 大矩阵中的索引
-        for (const auto &block : parameter_block_index_) {
+        for (const auto &block : parameter_block_index_)
+        {
             // 保留的参数
-            if (block.second >= marginalized_size_) {
+            if (block.second >= marginalized_size_)
+            {
                 remained_block_data_.push_back(parameter_block_data_[block.first]);
                 remained_block_size_.push_back(parameter_block_size_[block.first]);
                 remained_block_index_.push_back(parameter_block_index_[block.first]);
@@ -103,44 +117,52 @@ public:
         return remained_block_addr;
     }
 
-    const Eigen::MatrixXd &linearizedJacobians() {
+    const Eigen::MatrixXd &linearizedJacobians()
+    {
         return linearized_jacobians_;
     }
 
-    const Eigen::VectorXd &linearizedResiduals() {
+    const Eigen::VectorXd &linearizedResiduals()
+    {
         return linearized_residuals_;
     }
 
-    int marginalizedSize() const {
+    int marginalizedSize() const
+    {
         return marginalized_size_;
     }
 
-    int remainedSize() const {
+    int remainedSize() const
+    {
         return remained_size_;
     }
 
-    const std::vector<int> &remainedBlockSize() {
+    const std::vector<int> &remainedBlockSize()
+    {
         return remained_block_size_;
     }
 
-    const std::vector<int> &remainedBlockIndex() {
+    const std::vector<int> &remainedBlockIndex()
+    {
         return remained_block_index_;
     }
 
-    const std::vector<double *> &remainedBlockData() {
+    const std::vector<double *> &remainedBlockData()
+    {
         return remained_block_data_;
     }
 
 private:
     // 线性化
-    void linearization() {
+    void linearization()
+    {
         // SVD分解求解雅克比, Hp = J^T * J = V * S^{1/2} * S^{1/2} * V^T
         Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes2(Hp_);
         Eigen::VectorXd S = Eigen::VectorXd((saes2.eigenvalues().array() > EPS).select(saes2.eigenvalues().array(), 0));
         Eigen::VectorXd S_inv =
             Eigen::VectorXd((saes2.eigenvalues().array() > EPS).select(saes2.eigenvalues().array().inverse(), 0));
 
-        Eigen::VectorXd S_sqrt     = S.cwiseSqrt();
+        Eigen::VectorXd S_sqrt = S.cwiseSqrt();
         Eigen::VectorXd S_inv_sqrt = S_inv.cwiseSqrt();
 
         // J0 = S^{1/2} * V^T
@@ -150,7 +172,8 @@ private:
     }
 
     // Schur消元, 求解 Hp * dx_r = bp
-    void schurElimination() {
+    void schurElimination()
+    {
         // H0 * dx = b0
         Eigen::MatrixXd Hmm = 0.5 * (H0_.block(0, 0, marginalized_size_, marginalized_size_) +
                                      H0_.block(0, 0, marginalized_size_, marginalized_size_).transpose());
@@ -175,19 +198,23 @@ private:
     }
 
     // 构造增量方程 H * dx = b, 计算 H 和 b
-    void constructEquation() {
+    void constructEquation()
+    {
         H0_ = Eigen::MatrixXd::Zero(local_size_, local_size_);
         b0_ = Eigen::VectorXd::Zero(local_size_);
 
-        for (const auto &factor : factors_) {
-            for (size_t i = 0; i < factor->parameterBlocks().size(); i++) {
+        for (const auto &factor : factors_)
+        {
+            for (size_t i = 0; i < factor->parameterBlocks().size(); i++)
+            {
                 int row0 =
                     parameter_block_index_[parameters_ids_[reinterpret_cast<long>(factor->parameterBlocks()[i])]];
                 int rows = parameter_block_size_[parameters_ids_[reinterpret_cast<long>(factor->parameterBlocks()[i])]];
-                rows     = localSize(rows);
+                rows = localSize(rows);
 
                 Eigen::MatrixXd jacobian_i = factor->jacobians()[i].leftCols(rows);
-                for (size_t j = i; j < factor->parameterBlocks().size(); ++j) {
+                for (size_t j = i; j < factor->parameterBlocks().size(); ++j)
+                {
                     int col0 =
                         parameter_block_index_[parameters_ids_[reinterpret_cast<long>(factor->parameterBlocks()[j])]];
                     int cols =
@@ -197,10 +224,13 @@ private:
                     Eigen::MatrixXd jacobian_j = factor->jacobians()[j].leftCols(cols);
 
                     // H = J^T * J
-                    if (i == j) {
+                    if (i == j)
+                    {
                         // Hmm, Hrr
                         H0_.block(row0, col0, rows, cols) += jacobian_i.transpose() * jacobian_j;
-                    } else {
+                    }
+                    else
+                    {
                         // Hmr, Hrm = Hmr^T
                         H0_.block(row0, col0, rows, cols) += jacobian_i.transpose() * jacobian_j;
                         H0_.block(col0, row0, cols, rows) = H0_.block(row0, col0, rows, cols).transpose();
@@ -212,11 +242,13 @@ private:
         }
     }
 
-    bool updateParameterBlocksIndex() {
+    bool updateParameterBlocksIndex()
+    {
         int index = 0;
         // 只有被边缘化的参数预先加入了表，到此为止这里面都是需要被边缘化的参数
         // 先根据参数块的参数大小计算并赋值索引
-        for (auto &block : parameter_block_index_) {
+        for (auto &block : parameter_block_index_)
+        {
             block.second = index;
             index += localSize(parameter_block_size_[block.first]);
         }
@@ -224,10 +256,12 @@ private:
         marginalized_size_ = index;
 
         // 再次遍历所有参数块
-        for (const auto &block : parameter_block_size_) {
+        for (const auto &block : parameter_block_size_)
+        {
             // 加入剩余参数, 没有在 parameter_block_index_里的，表示虽然有约束，但并不是被干掉的那些。分配索引
             // 剩下的参数为下次优化时带有边缘化先验的参数
-            if (parameter_block_index_.find(block.first) == parameter_block_index_.end()) {
+            if (parameter_block_index_.find(block.first) == parameter_block_index_.end())
+            {
                 parameter_block_index_[block.first] = index;
                 index += localSize(block.second);
             }
@@ -241,20 +275,24 @@ private:
     }
 
     // 边缘化预处理, 评估每个残差块, 拷贝参数
-    void preMarginalization() {
-        for (const auto &factor : factors_) {
+    void preMarginalization()
+    {
+        for (const auto &factor : factors_)
+        {
             factor->Evaluate();
 
             // 记录每个参数块的大小
             std::vector<int> block_sizes = factor->parameterBlockSizes();
 
             // 拷贝每个参数块的数据
-            for (size_t k = 0; k < block_sizes.size(); k++) {
-                long id  = parameters_ids_[reinterpret_cast<long>(factor->parameterBlocks()[k])];
+            for (size_t k = 0; k < block_sizes.size(); k++)
+            {
+                long id = parameters_ids_[reinterpret_cast<long>(factor->parameterBlocks()[k])];
                 int size = block_sizes[k];
 
                 // 拷贝参数块数据
-                if (parameter_block_data_.find(id) == parameter_block_data_.end()) {
+                if (parameter_block_data_.find(id) == parameter_block_data_.end())
+                {
                     auto *data = new double[size];
                     memcpy(data, factor->parameterBlocks()[k], sizeof(double) * size);
                     parameter_block_data_[id] = data;
@@ -263,7 +301,8 @@ private:
         }
     }
 
-    void releaseMemory() {
+    void releaseMemory()
+    {
         // 释放因子所占有的内存, 尤其是边缘化因子及其占有的边缘化信息数据结构
         factors_.clear();
     }

@@ -57,7 +57,7 @@ public:
     
 private:
     void Run();
-    void SlideWindow();
+    void SlideWindow(bool slide_old);
     void Optimization();
     std::shared_ptr<Parameter> param_ptr_;
     std::shared_ptr<DataManager> data_manager_ptr_;
@@ -72,6 +72,11 @@ private:
     // Marginalization variables
     std::shared_ptr<MarginalizationInfo> last_marginalization_info_{nullptr};
     std::vector<double *> last_marginalization_parameter_blocks_;
+
+    // 逆深度参数（与优化/边缘化共用地址）
+    std::vector<double> inv_depths_;
+    std::vector<FeaturePerId *> depth_feats_;
+    std::unordered_map<FeaturePerId *, size_t> inv_depth_index_;
 
     // tmp data
     GNSSData last_gnss_data_;

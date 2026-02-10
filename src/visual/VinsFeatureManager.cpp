@@ -21,8 +21,8 @@ void VinsFeatureManager::clearState()
 
 /**
  * @brief 得到有效的地图点的数目
- * 
- * @return int 
+ *
+ * @return int
  */
 int VinsFeatureManager::getFeatureCount()
 {
@@ -44,16 +44,16 @@ int VinsFeatureManager::getFeatureCount()
 
 /**
  * @brief 增加特征点信息，同时检查上一帧是否时关键帧
- * 
- * @param[in] frame_count 
- * @param[in] features 
- * @param[in] td 
- * @return true 
- * @return false 
+ *
+ * @param[in] frame_count
+ * @param[in] features
+ * @param[in] td
+ * @return true
+ * @return false
  */
 
 bool VinsFeatureManager::addFeatureCheckParallax(
-    int frame_count, const std::vector<FeaturePoint> & features, const std::shared_ptr<State> & state_ptr)
+    int frame_count, const std::vector<FeaturePoint> &features, const std::shared_ptr<State> &state_ptr)
 {
     // LOG(INFO) << "input feature: " << (int)features.size();
     // LOG(INFO) << "num of feature: " << getFeatureCount();
@@ -61,26 +61,27 @@ bool VinsFeatureManager::addFeatureCheckParallax(
     int parallax_num = 0;
     last_track_num = 0;
     // 遍历每个特征点
-    for (auto &id_pts : features) {
+    for (auto &id_pts : features)
+    {
         // 用特征点信息构造一个对象
         FeaturePerFrame f_per_fra(Eigen::Vector3d(id_pts.point_.x(), id_pts.point_.y(), 1.0), state_ptr);
 
         int feature_id = id_pts.id_;
         // 在已有的id中寻找是否是有相同的特征点
         auto it = find_if(feature.begin(), feature.end(), [feature_id](const FeaturePerId &it)
-                          {
-            return it.feature_id == feature_id;
-                          });
+                          { return it.feature_id == feature_id; });
         // 这是一个新的特征点
-        if (it == feature.end()) {
+        if (it == feature.end())
+        {
             // 在特征点管理器中，新创建一个特征点id，这里的frame_count就是该特征点在滑窗中的当前位置，作为这个特征点的起始位置
             feature.push_back(FeaturePerId(feature_id, frame_count));
             feature.back().feature_per_frame.push_back(f_per_fra);
         }
         // 如果这是一个已有的特征点，就在对应的“组织”下增加一个帧属性
-        else if (it->feature_id == feature_id) {
+        else if (it->feature_id == feature_id)
+        {
             it->feature_per_frame.push_back(f_per_fra);
-            last_track_num++;   // 追踪到上一帧的特征点数目
+            last_track_num++; // 追踪到上一帧的特征点数目
         }
     }
     // 前两帧都设置为KF，追踪过少也认为是KF
@@ -99,9 +100,12 @@ bool VinsFeatureManager::addFeatureCheckParallax(
         }
     }
     // 这个和上一帧没有相同的特征点
-    if (parallax_num == 0) {
+    if (parallax_num == 0)
+    {
         return true;
-    } else {
+    }
+    else
+    {
         LOG(INFO) << "parallax_sum: " << parallax_sum << ", parallax_num: " << parallax_num;
         LOG(INFO) << "current parallax: " << (parallax_sum / parallax_num);
         LOG(INFO) << "last_track_num: " << last_track_num;
@@ -113,17 +117,19 @@ bool VinsFeatureManager::addFeatureCheckParallax(
 void VinsFeatureManager::debugShow()
 {
     LOG(INFO) << "debug show";
-    for (auto &it : feature) {
+    for (auto &it : feature)
+    {
         CHECK(it.feature_per_frame.size() != 0);
         CHECK(it.start_frame >= 0);
         CHECK(it.used_num >= 0);
 
         LOG(INFO) << it.feature_id << "," << it.used_num << "," << it.start_frame << " ";
         int sum = 0;
-        for (auto &j : it.feature_per_frame) {
+        for (auto &j : it.feature_per_frame)
+        {
             LOG(INFO) << int(j.is_used) << ",";
             sum += j.is_used;
-            printf("(%lf,%lf) ",j.point(0), j.point(1));
+            printf("(%lf,%lf) ", j.point(0), j.point(1));
         }
         CHECK(it.used_num == sum);
     }
@@ -131,17 +137,18 @@ void VinsFeatureManager::debugShow()
 
 /**
  * @brief 得到同时被frame_count_l frame_count_r帧看到的特征点在各自的坐标
- * 
- * @param[in] frame_count_l 
- * @param[in] frame_count_r 
- * @return vector<pair<Eigen::Vector3d, Eigen::Vector3d>> 
+ *
+ * @param[in] frame_count_l
+ * @param[in] frame_count_r
+ * @return vector<pair<Eigen::Vector3d, Eigen::Vector3d>>
  */
 
 std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> VinsFeatureManager::getCorresponding(
     int frame_count_l, int frame_count_r)
 {
     std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> corres;
-    for (auto &it : feature) {
+    for (auto &it : feature)
+    {
         // 保证需要的特征点被这两帧都观察到
         if (it.start_frame <= frame_count_l && it.endFrame() >= frame_count_r)
         {
@@ -153,8 +160,8 @@ std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> VinsFeatureManager::get
             a = it.feature_per_frame[idx_l].point;
 
             b = it.feature_per_frame[idx_r].point;
-            
-            corres.push_back(std::make_pair(a, b));  // 返回相机坐标系下的坐标对
+
+            corres.push_back(std::make_pair(a, b)); // 返回相机坐标系下的坐标对
         }
     }
     return corres;
@@ -163,23 +170,26 @@ std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> VinsFeatureManager::get
 void VinsFeatureManager::setDepth(const Eigen::VectorXd &x)
 {
     int feature_index = -1;
-    for (auto &it_per_id : feature) {
+    for (auto &it_per_id : feature)
+    {
         it_per_id.used_num = it_per_id.feature_per_frame.size();
         if (!(it_per_id.used_num >= 2 && it_per_id.start_frame < param_ptr_->WINDOW_SIZE - 2))
             continue;
 
         it_per_id.estimated_depth = 1.0 / x(++feature_index);
-        //ROS_INFO("feature id %d , start_frame %d, depth %f ", it_per_id->feature_id, it_per_id-> start_frame, it_per_id->estimated_depth);
-        if (it_per_id.estimated_depth < 0) {
+        // ROS_INFO("feature id %d , start_frame %d, depth %f ", it_per_id->feature_id, it_per_id-> start_frame, it_per_id->estimated_depth);
+        if (it_per_id.estimated_depth < 0)
+        {
             it_per_id.solve_flag = 2;
-        } else
+        }
+        else
             it_per_id.solve_flag = 1;
     }
 }
 
 /**
  * @brief 移除一些不能被三角化的点
- * 
+ *
  */
 void VinsFeatureManager::removeFailures()
 {
@@ -194,13 +204,14 @@ void VinsFeatureManager::removeFailures()
 
 /**
  * @brief 把给定的深度赋值给各个特征点作为逆深度
- * 
- * @param[in] x 
+ *
+ * @param[in] x
  */
 void VinsFeatureManager::clearDepth(const Eigen::VectorXd &x)
 {
     int feature_index = -1;
-    for (auto &it_per_id : feature) {
+    for (auto &it_per_id : feature)
+    {
         it_per_id.used_num = it_per_id.feature_per_frame.size();
         if (!(it_per_id.used_num >= 2 && it_per_id.start_frame < param_ptr_->WINDOW_SIZE - 2))
             continue;
@@ -210,14 +221,15 @@ void VinsFeatureManager::clearDepth(const Eigen::VectorXd &x)
 
 /**
  * @brief 得到特征点的逆深度
- * 
- * @return VectorXd 
+ *
+ * @return VectorXd
  */
 Eigen::VectorXd VinsFeatureManager::getDepthVector()
 {
     Eigen::VectorXd dep_vec(getFeatureCount());
     int feature_index = -1;
-    for (auto &it_per_id : feature) {
+    for (auto &it_per_id : feature)
+    {
         it_per_id.used_num = it_per_id.feature_per_frame.size();
         if (!(it_per_id.used_num >= 2 && it_per_id.start_frame < param_ptr_->WINDOW_SIZE - 2))
             continue;
@@ -234,12 +246,13 @@ Eigen::VectorXd VinsFeatureManager::getDepthVector()
 void VinsFeatureManager::triangulate()
 {
     // 遍历每一个特征点
-    for (auto &it_per_id : feature) {
+    for (auto &it_per_id : feature)
+    {
         it_per_id.used_num = it_per_id.feature_per_frame.size();
         if (!(it_per_id.used_num >= 2 && it_per_id.start_frame < param_ptr_->WINDOW_SIZE - 2))
             continue;
 
-        if (it_per_id.estimated_depth > 0)  // 代表已经三角化过了
+        if (it_per_id.estimated_depth > 0) // 代表已经三角化过了
             continue;
 
         int imu_i = it_per_id.start_frame;
@@ -284,25 +297,25 @@ void VinsFeatureManager::triangulate()
         Eigen::Vector4d svd_V = Eigen::JacobiSVD<Eigen::MatrixXd>(svd_A, Eigen::ComputeThinV).matrixV().rightCols<1>();
         // 求解齐次坐标下的深度
         double svd_method = svd_V[2] / svd_V[3];
-        //it_per_id->estimated_depth = -b / A;
-        //it_per_id->estimated_depth = svd_V[2] / svd_V[3];
-        // 得到的深度值实际上就是第一个观察到这个特征点的相机坐标系下的深度值
+        // it_per_id->estimated_depth = -b / A;
+        // it_per_id->estimated_depth = svd_V[2] / svd_V[3];
+        //  得到的深度值实际上就是第一个观察到这个特征点的相机坐标系下的深度值
         it_per_id.estimated_depth = svd_method;
-        //it_per_id->estimated_depth = 5.0;
+        // it_per_id->estimated_depth = 5.0;
 
-        if (it_per_id.estimated_depth < 0.1) {
+        if (it_per_id.estimated_depth < 0.1)
+        {
             it_per_id.estimated_depth = 5.0; // 具体太近就设置成默认值
         }
-
     }
 }
 
 /**
  * @brief 利用观测到该特征点的所有位姿来三角化特征点
- * 
- * @param[in] Ps 
- * @param[in] tic 
- * @param[in] ric 
+ *
+ * @param[in] Ps
+ * @param[in] tic
+ * @param[in] ric
  */
 void VinsFeatureManager::triangulate(
     Eigen::Vector3d Ps[], Eigen::Matrix3d Rs[], Eigen::Vector3d tic[], Eigen::Matrix3d ric[])
@@ -314,7 +327,7 @@ void VinsFeatureManager::triangulate(
         if (!(it_per_id.used_num >= 2 && it_per_id.start_frame < param_ptr_->WINDOW_SIZE - 2))
             continue;
 
-        if (it_per_id.estimated_depth > 0)  // 代表已经三角化过了
+        if (it_per_id.estimated_depth > 0) // 代表已经三角化过了
             continue;
         int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
 
@@ -353,17 +366,16 @@ void VinsFeatureManager::triangulate(
         Eigen::Vector4d svd_V = Eigen::JacobiSVD<Eigen::MatrixXd>(svd_A, Eigen::ComputeThinV).matrixV().rightCols<1>();
         // 求解齐次坐标下的深度
         double svd_method = svd_V[2] / svd_V[3];
-        //it_per_id->estimated_depth = -b / A;
-        //it_per_id->estimated_depth = svd_V[2] / svd_V[3];
-        // 得到的深度值实际上就是第一个观察到这个特征点的相机坐标系下的深度值
+        // it_per_id->estimated_depth = -b / A;
+        // it_per_id->estimated_depth = svd_V[2] / svd_V[3];
+        //  得到的深度值实际上就是第一个观察到这个特征点的相机坐标系下的深度值
         it_per_id.estimated_depth = svd_method;
-        //it_per_id->estimated_depth = INIT_DEPTH;
+        // it_per_id->estimated_depth = INIT_DEPTH;
 
         if (it_per_id.estimated_depth < 0.1)
         {
             it_per_id.estimated_depth = 5.0; // 具体太近就设置成默认值
         }
-
     }
 }
 
@@ -376,48 +388,51 @@ void VinsFeatureManager::removeOutlier()
     {
         it_next++;
         i += it->used_num != 0;
-        if (it->used_num != 0 && it->is_outlier == true) {
+        if (it->used_num != 0 && it->is_outlier == true)
+        {
             feature.erase(it);
         }
     }
 }
 
 /**
- * @brief 
- * 
+ * @brief
+ *
  * @param[in] marg_R  被移除的位姿
- * @param[in] marg_P 
+ * @param[in] marg_P
  * @param[in] new_R    转接地图点的位姿
- * @param[in] new_P 
+ * @param[in] new_P
  */
 
-void VinsFeatureManager::removeBackShiftDepth(Eigen::Matrix3d marg_R, Eigen::Vector3d marg_P, Eigen::Matrix3d new_R, Eigen::Vector3d new_P)
+void VinsFeatureManager::removeBackShiftDepth(
+    Eigen::Matrix3d marg_R, Eigen::Vector3d marg_P, Eigen::Matrix3d new_R, Eigen::Vector3d new_P)
 {
     for (auto it = feature.begin(), it_next = feature.begin();
          it != feature.end(); it = it_next)
     {
         it_next++;
 
-        if (it->start_frame != 0)   // 如果不是被移除的帧看到，那么该地图点对应的起始帧id减一
+        if (it->start_frame != 0) // 如果不是被移除的帧看到，那么该地图点对应的起始帧id减一
             it->start_frame--;
-        else {
-            Eigen::Vector3d uv_i = it->feature_per_frame[0].point;    // 取出归一化相机坐标系坐标
+        else
+        {
+            Eigen::Vector3d uv_i = it->feature_per_frame[0].point;      // 取出归一化相机坐标系坐标
             it->feature_per_frame.erase(it->feature_per_frame.begin()); // 该点不再被原来的第一帧看到，因此从中移除
-            if (it->feature_per_frame.size() < 2)   // 如果这个地图点没有至少被两帧看到
+            if (it->feature_per_frame.size() < 2)                       // 如果这个地图点没有至少被两帧看到
             {
-                feature.erase(it);  // 那他就没有存在的价值了
+                feature.erase(it); // 那他就没有存在的价值了
                 continue;
             }
-            else    // 进行管辖权的转交
+            else // 进行管辖权的转交
             {
-                Eigen::Vector3d pts_i = uv_i * it->estimated_depth; // 实际相机坐标系下的坐标
-                Eigen::Vector3d w_pts_i = marg_R * pts_i + marg_P;  // 转到世界坐标系下
-                Eigen::Vector3d pts_j = new_R.transpose() * (w_pts_i - new_P);  // 转到新的最老帧的相机坐标系下
+                Eigen::Vector3d pts_i = uv_i * it->estimated_depth;            // 实际相机坐标系下的坐标
+                Eigen::Vector3d w_pts_i = marg_R * pts_i + marg_P;             // 转到世界坐标系下
+                Eigen::Vector3d pts_j = new_R.transpose() * (w_pts_i - new_P); // 转到新的最老帧的相机坐标系下
                 double dep_j = pts_j(2);
-                if (dep_j > 0)  // 看看深度是否有效
-                    it->estimated_depth = dep_j;    // 有效的话就得到在现在最老帧下的深度值
+                if (dep_j > 0)                   // 看看深度是否有效
+                    it->estimated_depth = dep_j; // 有效的话就得到在现在最老帧下的深度值
                 else
-                    it->estimated_depth = 5.0;   // 无效就设置默认值
+                    it->estimated_depth = 5.0; // 无效就设置默认值
             }
         }
         // remove tracking-lost feature after marginalize
@@ -431,7 +446,7 @@ void VinsFeatureManager::removeBackShiftDepth(Eigen::Matrix3d marg_R, Eigen::Vec
 }
 /**
  * @brief 这个还没初始化结束，因此相比刚才，不进行地图点新的深度的换算，因为此时还有进行视觉惯性对齐
- * 
+ *
  */
 void VinsFeatureManager::removeBack()
 {
@@ -442,7 +457,8 @@ void VinsFeatureManager::removeBack()
 
         if (it->start_frame != 0)
             it->start_frame--;
-        else {
+        else
+        {
             it->feature_per_frame.erase(it->feature_per_frame.begin());
             if (it->feature_per_frame.size() == 0)
                 feature.erase(it);
@@ -460,22 +476,24 @@ void VinsFeatureManager::removeFront(int frame_count)
         if (it->start_frame == frame_count) // 如果地图点被最后一帧看到，由于滑窗，他的起始帧减1
         {
             it->start_frame--;
-        } else {
-            int j = param_ptr_->WINDOW_SIZE - 1 - it->start_frame;  // 倒数第二帧在这个地图点对应KF vector的idx
-            if (it->endFrame() < frame_count - 1)   // 如果该地图点不能被倒数第二帧看到，那没什么好做的
+        }
+        else
+        {
+            int j = param_ptr_->WINDOW_SIZE - 1 - it->start_frame; // 倒数第二帧在这个地图点对应KF vector的idx
+            if (it->endFrame() < frame_count - 1)                  // 如果该地图点不能被倒数第二帧看到，那没什么好做的
                 continue;
             it->feature_per_frame.erase(it->feature_per_frame.begin() + j); // 能被倒数第二帧看到，erase掉这个索引
-            if (it->feature_per_frame.size() == 0)  // 如果这个地图点没有别的观测了
-                feature.erase(it);  // 就没有存在的价值了
+            if (it->feature_per_frame.size() == 0)                          // 如果这个地图点没有别的观测了
+                feature.erase(it);                                          // 就没有存在的价值了
         }
     }
 }
 
 double VinsFeatureManager::compensatedParallax2(const FeaturePerId &it_per_id, int frame_count)
 {
-    //check the second last frame is keyframe or not
-    //parallax betwwen seconde last frame and third last frame
-    // 找到相邻两帧
+    // check the second last frame is keyframe or not
+    // parallax betwwen seconde last frame and third last frame
+    //  找到相邻两帧
     const FeaturePerFrame &frame_i = it_per_id.feature_per_frame[frame_count - 2 - it_per_id.start_frame];
     const FeaturePerFrame &frame_j = it_per_id.feature_per_frame[frame_count - 1 - it_per_id.start_frame];
 
@@ -488,14 +506,14 @@ double VinsFeatureManager::compensatedParallax2(const FeaturePerId &it_per_id, i
     Eigen::Vector3d p_i = frame_i.point;
     Eigen::Vector3d p_i_comp;
 
-    //int r_i = frame_count - 2;
-    //int r_j = frame_count - 1;
-    //p_i_comp = ric[camera_id_j].transpose() * Rs[r_j].transpose() * Rs[r_i] * ric[camera_id_i] * p_i;
+    // int r_i = frame_count - 2;
+    // int r_j = frame_count - 1;
+    // p_i_comp = ric[camera_id_j].transpose() * Rs[r_j].transpose() * Rs[r_i] * ric[camera_id_i] * p_i;
     p_i_comp = p_i;
     double dep_i = p_i(2);
     double u_i = p_i(0) / dep_i;
     double v_i = p_i(1) / dep_i;
-    double du = u_i - u_j, dv = v_i - v_j;  // 归一化相机坐标系的坐标差
+    double du = u_i - u_j, dv = v_i - v_j; // 归一化相机坐标系的坐标差
     // 当都是归一化坐标系时，他们两个都是一样的
     double dep_i_comp = p_i_comp(2);
     double u_i_comp = p_i_comp(0) / dep_i_comp;

@@ -9,19 +9,22 @@
 #include <opencv2/opencv.hpp>
 
 #include "Parameter.h"
-struct IMUData {
+struct IMUData
+{
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     double time_ = -1.0;
     // m/s^2  rad/s
     Eigen::Vector3d a_, w_;
 };
 
-struct WheelData {
+struct WheelData
+{
     double time_ = -1.0;
     double lv_, rv_;
 };
 
-struct WheelIMUData {
+struct WheelIMUData
+{
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     double time_ = -1.0;
     // m/s^2  rad/s
@@ -29,7 +32,8 @@ struct WheelIMUData {
     double lv_, rv_;
 };
 
-struct GNSSData {
+struct GNSSData
+{
     double time_ = -1.0;
     double lat_;
     double lon_;
@@ -37,17 +41,20 @@ struct GNSSData {
     double x_, y_, z_;
 };
 
-struct CameraData {
+struct CameraData
+{
     double time_ = -1.0;
     cv::Mat image_;
 };
 
-struct FeaturePoint {
+struct FeaturePoint
+{
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Eigen::Vector2d point_;
     int id_ = -1;
 };
-struct FeatureData {
+struct FeatureData
+{
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     double time_ = -1.0;
     std::vector<FeaturePoint> features_;
@@ -58,35 +65,42 @@ struct FeatureData {
     Eigen::MatrixXd C_;
 };
 
-template<typename T>
-bool FindNearestPair(std::deque<T>& deque, const double& time,
-    typename std::deque<T>::iterator& left,
-    typename std::deque<T>::iterator& right,
-    double max_interval = 0.05)
+template <typename T>
+bool FindNearestPair(std::deque<T> &deque, const double &time,
+                     typename std::deque<T>::iterator &left,
+                     typename std::deque<T>::iterator &right,
+                     double max_interval = 0.05)
 {
-    if (deque.size() < 2) return false;
-    right = std::lower_bound(deque.begin(), deque.end(), time, [](const T& a, double b){ return a.time_ < b; });
+    if (deque.size() < 2)
+        return false;
+    right = std::lower_bound(deque.begin(), deque.end(), time, [](const T &a, double b)
+                             { return a.time_ < b; });
     // 边界情况：time等于第一个元素
-    if (right == deque.begin()) {
+    if (right == deque.begin())
+    {
         left = right;
         right = right + 1;
         return true;
     }
     // 边界情况：time等于最后一个元素
-    if (right == deque.end()) {
+    if (right == deque.end())
+    {
         left = right - 2;
         right = right - 1;
         return true;
     }
     left = right - 1;
-    if ((right->time_ - left->time_) > max_interval) return false;
+    if ((right->time_ - left->time_) > max_interval)
+        return false;
     return true;
 }
 
-class DataManager {
+class DataManager
+{
 public:
-    DataManager(const std::shared_ptr<Parameter>& param_ptr) { param_ptr_ = param_ptr; }
-    void Input(const IMUData & imu_data) {
+    DataManager(const std::shared_ptr<Parameter> &param_ptr) { param_ptr_ = param_ptr; }
+    void Input(const IMUData &imu_data)
+    {
         std::unique_lock<std::mutex> lock(imu_datas_mtx_);
         if (!imu_datas_.empty() && imu_datas_[imu_datas_.size() - 1].time_ >= imu_data.time_)
             return;
@@ -96,7 +110,8 @@ public:
             imu_datas_.pop_front();
     }
 
-    void Input(const WheelData & wheel_data) {
+    void Input(const WheelData &wheel_data)
+    {
         {
             std::unique_lock<std::mutex> lock(wheel_datas_mtx_);
             if (!wheel_datas_.empty() && wheel_datas_[wheel_datas_.size() - 1].time_ >= wheel_data.time_)
@@ -108,11 +123,13 @@ public:
         }
 
         // 应该用高频去差值对齐低频，kaist数据集差不多就用imu差值吧
-        if (param_ptr_->use_imu_ && param_ptr_->wheel_use_type_ == 1 && imu_datas_.size() > 1) {
+        if (param_ptr_->use_imu_ && param_ptr_->wheel_use_type_ == 1 && imu_datas_.size() > 1)
+        {
             std::deque<IMUData>::iterator imu_data_iter;
             {
                 std::unique_lock<std::mutex> lock(imu_datas_mtx_);
-                imu_data_iter = std::lower_bound(imu_datas_.begin(), imu_datas_.end(), wheel_data.time_, [](IMUData a, double b) { return a.time_ < b; });
+                imu_data_iter = std::lower_bound(imu_datas_.begin(), imu_datas_.end(), wheel_data.time_, [](IMUData a, double b)
+                                                 { return a.time_ < b; });
                 if (imu_data_iter == imu_datas_.begin())
                     return;
             }
@@ -123,7 +140,7 @@ public:
             double delta_wheel_imu_time = imu_data2.time_ - wheel_data.time_;
             if (abs(delta_imu_time) < abs(delta_wheel_imu_time))
                 return;
-            
+
             WheelIMUData wheel_imu_data;
             wheel_imu_data.time_ = wheel_data.time_;
             wheel_imu_data.a_ = imu_data1.a_ + (imu_data2.a_ - imu_data1.a_) * (wheel_data.time_ - imu_data1.time_) / delta_imu_time;
@@ -135,16 +152,15 @@ public:
             {
                 std::unique_lock<std::mutex> lock(wheel_imu_datas_mtx_);
                 imu_wheel_datas_.push_back(wheel_imu_data);
-                
 
                 if (imu_wheel_datas_.size() > 1000)
                     imu_wheel_datas_.pop_front();
             }
-                
-        }        
+        }
     }
 
-    void Input(const GNSSData & gnss_data) {
+    void Input(const GNSSData &gnss_data)
+    {
         std::unique_lock<std::mutex> lock(gnss_datas_mtx_);
         if (!gnss_datas_.empty() && gnss_datas_[gnss_datas_.size() - 1].time_ >= gnss_data.time_)
             return;
@@ -154,7 +170,8 @@ public:
             gnss_datas_.pop_front();
     }
 
-    void Input(const CameraData & camera_data) {
+    void Input(const CameraData &camera_data)
+    {
         if (camera_data_.time_ > 0.0 && camera_data_.time_ >= camera_data.time_)
             return;
 
@@ -162,7 +179,8 @@ public:
         camera_data_ = camera_data;
     }
 
-    void Input(const FeatureData & feature_data) {
+    void Input(const FeatureData &feature_data)
+    {
         if (feature_data_.time_ > 0.0 && feature_data_.time_ >= feature_data.time_)
             return;
 
@@ -170,7 +188,8 @@ public:
         feature_data_ = feature_data;
     }
 
-    bool GetLastIMUData(IMUData & imu_data, double last_data_time = -1.0) {
+    bool GetLastIMUData(IMUData &imu_data, double last_data_time = -1.0)
+    {
         std::unique_lock<std::mutex> lock(imu_datas_mtx_);
         if (imu_datas_.empty() || imu_datas_.back().time_ <= last_data_time)
             return false;
@@ -178,7 +197,8 @@ public:
         return true;
     }
 
-    bool GetLastGNSSData(GNSSData & gnss_data, double last_data_time = -1.0) {
+    bool GetLastGNSSData(GNSSData &gnss_data, double last_data_time = -1.0)
+    {
         std::unique_lock<std::mutex> lock(gnss_datas_mtx_);
         if (gnss_datas_.empty() || gnss_datas_.back().time_ <= last_data_time)
             return false;
@@ -186,7 +206,8 @@ public:
         return true;
     }
 
-    bool GetLastWheelData(WheelData & wheel_data, double last_data_time = -1.0) {
+    bool GetLastWheelData(WheelData &wheel_data, double last_data_time = -1.0)
+    {
         std::unique_lock<std::mutex> lock(wheel_datas_mtx_);
         if (wheel_datas_.empty() || wheel_datas_.back().time_ <= last_data_time)
             return false;
@@ -194,7 +215,8 @@ public:
         return true;
     }
 
-    bool GetLastWheelIMUData(WheelIMUData & wheel_imu_data, double last_data_time = -1.0) {
+    bool GetLastWheelIMUData(WheelIMUData &wheel_imu_data, double last_data_time = -1.0)
+    {
         std::unique_lock<std::mutex> lock(wheel_imu_datas_mtx_);
         if (imu_wheel_datas_.empty() || imu_wheel_datas_.back().time_ <= last_data_time)
             return false;
@@ -202,7 +224,8 @@ public:
         return true;
     }
 
-    bool GetNewCameraData(CameraData & camera_data, double last_data_time = -1.0) {
+    bool GetNewCameraData(CameraData &camera_data, double last_data_time = -1.0)
+    {
         if (camera_data_.time_ <= last_data_time)
             return false;
         std::unique_lock<std::mutex> lock(camera_data_mtx_);
@@ -210,7 +233,8 @@ public:
         return true;
     }
 
-    bool GetNewFeatureData(FeatureData & feature_data, double last_data_time = -1.0) {
+    bool GetNewFeatureData(FeatureData &feature_data, double last_data_time = -1.0)
+    {
         if (feature_data_.time_ <= last_data_time)
             return false;
         std::unique_lock<std::mutex> lock(feature_data_mtx_);
@@ -219,7 +243,8 @@ public:
     }
 
     // IMUData插值函数
-    IMUData InterpolateIMU(const IMUData& left, const IMUData& right, double time) {
+    IMUData InterpolateIMU(const IMUData &left, const IMUData &right, double time)
+    {
         double ratio = (time - left.time_) / (right.time_ - left.time_);
         IMUData result;
         result.time_ = time;
@@ -229,7 +254,8 @@ public:
     }
 
     // WheelData插值函数
-    WheelData InterpolateWheel(const WheelData& left, const WheelData& right, double time) {
+    WheelData InterpolateWheel(const WheelData &left, const WheelData &right, double time)
+    {
         double ratio = (time - left.time_) / (right.time_ - left.time_);
         WheelData result;
         result.time_ = time;
@@ -238,7 +264,8 @@ public:
         return result;
     }
 
-    WheelIMUData InterpolateWheelIMU(const WheelIMUData& left, const WheelIMUData& right, double time) {
+    WheelIMUData InterpolateWheelIMU(const WheelIMUData &left, const WheelIMUData &right, double time)
+    {
         double ratio = (time - left.time_) / (right.time_ - left.time_);
         WheelIMUData result;
         result.time_ = time;
@@ -250,14 +277,19 @@ public:
     }
 
     // 修改后的 GetDatasBetween
-    bool GetDatasBetween(std::vector<IMUData>& datas, const double& start, const double& end, double max_interval = 0.05) {
+    bool GetDatasBetween(
+        std::vector<IMUData> &datas, const double &start, const double &end,
+        double max_interval = 0.05)
+    {
         std::unique_lock<std::mutex> lock(imu_datas_mtx_);
         if (imu_datas_.empty() || imu_datas_.front().time_ > start || imu_datas_.back().time_ < end)
             return false;
 
         std::deque<IMUData>::iterator start_left, start_right, end_left, end_right;
-        if (!FindNearestPair(imu_datas_, start, start_left, start_right, max_interval)) return false;
-        if (!FindNearestPair(imu_datas_, end, end_left, end_right, max_interval)) return false;
+        if (!FindNearestPair(imu_datas_, start, start_left, start_right, max_interval))
+            return false;
+        if (!FindNearestPair(imu_datas_, end, end_left, end_right, max_interval))
+            return false;
 
         datas.clear();
         datas.push_back(InterpolateIMU(*start_left, *start_right, start));
@@ -267,14 +299,19 @@ public:
         return true;
     }
 
-    bool GetDatasBetween(std::vector<WheelData>& datas, const double& start, const double& end, double max_interval = 0.05) {
+    bool GetDatasBetween(
+        std::vector<WheelData> &datas, const double &start, const double &end,
+        double max_interval = 0.05)
+    {
         std::unique_lock<std::mutex> lock(wheel_datas_mtx_);
         if (wheel_datas_.empty() || wheel_datas_.front().time_ > start || wheel_datas_.back().time_ < end)
             return false;
 
         std::deque<WheelData>::iterator start_left, start_right, end_left, end_right;
-        if (!FindNearestPair(wheel_datas_, start, start_left, start_right, max_interval)) return false;
-        if (!FindNearestPair(wheel_datas_, end, end_left, end_right, max_interval)) return false;
+        if (!FindNearestPair(wheel_datas_, start, start_left, start_right, max_interval))
+            return false;
+        if (!FindNearestPair(wheel_datas_, end, end_left, end_right, max_interval))
+            return false;
 
         datas.clear();
         datas.push_back(InterpolateWheel(*start_left, *start_right, start));
@@ -284,7 +321,8 @@ public:
         return true;
     }
 
-    bool GetDatas(WheelData& datas, const double& time, double max_interval = 0.05) {
+    bool GetDatas(WheelData &datas, const double &time, double max_interval = 0.05)
+    {
         std::unique_lock<std::mutex> lock(wheel_datas_mtx_);
         if (wheel_datas_.empty() ||
             (wheel_datas_.front().time_ - 0.02) > time ||
@@ -294,20 +332,26 @@ public:
         }
 
         std::deque<WheelData>::iterator start_left, start_right;
-        if (!FindNearestPair(wheel_datas_, time, start_left, start_right, max_interval)) return false;
+        if (!FindNearestPair(wheel_datas_, time, start_left, start_right, max_interval))
+            return false;
 
         datas = InterpolateWheel(*start_left, *start_right, time);
         return true;
     }
 
-    bool GetDatasBetween(std::vector<WheelIMUData>& datas, const double& start, const double& end, double max_interval = 0.05) {
+    bool GetDatasBetween(
+        std::vector<WheelIMUData> &datas, const double &start, const double &end,
+        double max_interval = 0.05)
+    {
         std::unique_lock<std::mutex> lock(wheel_imu_datas_mtx_);
         if (imu_wheel_datas_.empty() || imu_wheel_datas_.front().time_ > start || imu_wheel_datas_.back().time_ < end)
             return false;
 
         std::deque<WheelIMUData>::iterator start_left, start_right, end_left, end_right;
-        if (!FindNearestPair(imu_wheel_datas_, start, start_left, start_right, max_interval)) return false;
-        if (!FindNearestPair(imu_wheel_datas_, end, end_left, end_right, max_interval)) return false;
+        if (!FindNearestPair(imu_wheel_datas_, start, start_left, start_right, max_interval))
+            return false;
+        if (!FindNearestPair(imu_wheel_datas_, end, end_left, end_right, max_interval))
+            return false;
 
         datas.clear();
         datas.push_back(InterpolateWheelIMU(*start_left, *start_right, start));
@@ -316,6 +360,53 @@ public:
         datas.push_back(InterpolateWheelIMU(*end_left, *end_right, end));
         return true;
     }
+
+    bool GetDatas(GNSSData &datas, const double &time, double max_interval = 0.04)
+    {
+        std::unique_lock<std::mutex> lock(gnss_datas_mtx_);
+        if (gnss_datas_.empty())
+            return false;
+
+        // FindNearestPair 内部判断 size < 2 会返回 false，这里单独处理 size=1 的情况
+        if (gnss_datas_.size() == 1)
+        {
+            if (std::abs(gnss_datas_.front().time_ - time) <= max_interval)
+            {
+                datas = gnss_datas_.front();
+                return true;
+            }
+            return false;
+        }
+
+        std::deque<GNSSData>::iterator left, right;
+        // 传入一个足够大的 interval (如100.0s)，确保 FindNearestPair 只负责定位迭代器，不负责阈值拦截
+        if (!FindNearestPair(gnss_datas_, time, left, right, 100.0))
+            return false;
+
+        double dt_left = std::abs(left->time_ - time);
+        double dt_right = std::abs(right->time_ - time);
+
+        // 挑选距离更近的一个
+        if (dt_left < dt_right)
+        {
+            if (dt_left <= max_interval)
+            {
+                datas = *left;
+                return true;
+            }
+        }
+        else
+        {
+            if (dt_right <= max_interval)
+            {
+                datas = *right;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 private:
     std::mutex imu_datas_mtx_, wheel_datas_mtx_, wheel_imu_datas_mtx_, gnss_datas_mtx_, camera_data_mtx_, feature_data_mtx_;
     std::deque<IMUData> imu_datas_;

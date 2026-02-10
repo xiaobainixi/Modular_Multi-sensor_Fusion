@@ -87,6 +87,17 @@ public:
             Propagate(data_buf_[i]);
     }
 
+    void Merge(const IMUPreintegration &curr)
+    {
+        for (const auto &imu_data : curr.data_buf_)
+        {
+            if (imu_data.time_ <= imu_data_0_.time_)
+                continue;
+            data_buf_.push_back(imu_data);
+            Propagate(imu_data);
+        }
+    }
+
     /**
      * @brief 中值法（mid-point）单步预积分
      * @details 利用 imu_data_0_ 与 imu_data_1_ 及当前线性化零偏 ba_, bg_ 与历史增量
@@ -535,6 +546,12 @@ public:
         // j时刻陀螺仪偏置
         Eigen::Vector3d Bgj(parameters[9][0], parameters[9][1], parameters[9][2]);
 
+
+        // if ((Bai - preint_->ba_).norm() > 0.10 ||
+        //     (Bgi - preint_->bg_).norm() > 0.01)
+        // {
+        //     preint_->Repropagate(Bai, Bgi);
+        // }
 
         Eigen::Map<Eigen::Matrix<double, 15, 1>> residual(residuals);
         // 计算原始残差（不含信息矩阵）

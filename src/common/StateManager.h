@@ -42,13 +42,14 @@ struct CamState
 };
 
 class Preintegration;
-class State {
+class State
+{
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     // todo 是否有必要加锁
     // std::mutex state_mtx_;
     double time_;
-    Eigen::MatrixXd C_;  // 协方差矩阵
+    Eigen::MatrixXd C_; // 协方差矩阵
     Eigen::Vector3d Vw_ = Eigen::Vector3d::Zero();
     Eigen::Vector3d twb_ = Eigen::Vector3d::Zero();
     Eigen::Quaterniond Rwb_ = Eigen::Quaterniond::Identity();
@@ -62,9 +63,10 @@ public:
     std::shared_ptr<Preintegration> preint_;
 
     // 左乘
-    void Update(std::shared_ptr<Parameter> param_ptr, const Eigen::VectorXd & X, const Eigen::MatrixXd & C_new, std::map<int, std::shared_ptr<CamState>, std::less<int>, 
-        Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<CamState>>>> & cam_states) {
-        if (param_ptr->state_type_ == 0) {
+    void Update(std::shared_ptr<Parameter> param_ptr, const Eigen::VectorXd &X, const Eigen::MatrixXd &C_new, std::map<int, std::shared_ptr<CamState>, std::less<int>, Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<CamState>>>> &cam_states)
+    {
+        if (param_ptr->state_type_ == 0)
+        {
             Rwb_ = Converter::so3ToQuat(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
             Vw_ += X.block<3, 1>(param_ptr->VEL_INDEX_STATE_, 0);
             twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);
@@ -82,13 +84,17 @@ public:
             LOG(INFO) << "dP: " << X.block<3, 1>(param_ptr->POSI_INDEX, 0).transpose();
             LOG(INFO) << "dba: " << X.block<3, 1>(param_ptr->ACC_BIAS_INDEX_STATE_, 0).transpose();
             LOG(INFO) << "dbg: " << X.block<3, 1>(param_ptr->GYRO_BIAS_INDEX_STATE_, 0).transpose();
-        } else if(param_ptr->state_type_ == 1) {
+        }
+        else if (param_ptr->state_type_ == 1)
+        {
             Rwb_ = Converter::so3ToQuat(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
             twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);
             LOG(INFO) << "Update State (type 1):";
             LOG(INFO) << "Rwb_: " << Rwb_.coeffs().transpose();
             LOG(INFO) << "twb_: " << twb_.transpose();
-        } else if (param_ptr->state_type_ == 2) {
+        }
+        else if (param_ptr->state_type_ == 2)
+        {
             Rwb_ = Converter::so3ToQuat(X.block<3, 1>(param_ptr->ORI_INDEX_STATE_, 0)) * Rwb_;
             twb_ += X.block<3, 1>(param_ptr->POSI_INDEX, 0);
             bg_ += X.block<3, 1>(param_ptr->GYRO_BIAS_INDEX_STATE_, 0);
@@ -96,7 +102,9 @@ public:
             LOG(INFO) << "Rwb_: " << Rwb_.coeffs().transpose();
             LOG(INFO) << "twb_: " << twb_.transpose();
             LOG(INFO) << "bg_: " << bg_.transpose();
-        } else {
+        }
+        else
+        {
             LOG(ERROR) << "未知状态类型";
             exit(0);
         }
@@ -116,30 +124,39 @@ public:
     }
 };
 
-struct CompareTime {
-	bool operator() (const std::shared_ptr<State>& s1,  const std::shared_ptr<State>& s2) {	
-		return s1->time_ < s2->time_;
-	}
+struct CompareTime
+{
+    bool operator()(const std::shared_ptr<State> &s1, const std::shared_ptr<State> &s2)
+    {
+        return s1->time_ < s2->time_;
+    }
 };
 
-class StateManager {
+class StateManager
+{
 public:
-    StateManager(std::shared_ptr<Parameter> param_ptr) {
+    StateManager(std::shared_ptr<Parameter> param_ptr)
+    {
         param_ptr_ = param_ptr;
     }
 
-    inline bool GetNearestState(std::shared_ptr<State> & state, double time = -1.0) {
+    inline bool GetNearestState(std::shared_ptr<State> &state, double time = -1.0)
+    {
         if (states_.empty())
             return false;
-        if (time < 0.0) {
+        if (time < 0.0)
+        {
             std::unique_lock<std::mutex> lock(states_mtx_);
             state = states_[states_.size() - 1];
             return true;
-        } else if (states_.size() > 1) {
+        }
+        else if (states_.size() > 1)
+        {
             std::shared_ptr<State> tar = std::make_shared<State>();
             tar->time_ = time;
             auto iter = lower_bound(states_.begin(), states_.end(), tar, CompareTime());
-            if (iter != states_.begin() && iter != states_.end()) {
+            if (iter != states_.begin() && iter != states_.end())
+            {
                 auto iter_sub = iter;
                 iter_sub--;
                 state = std::abs((*iter)->time_ - time) < std::abs((*iter_sub)->time_ - time) ? (*iter) : (*iter_sub);
@@ -149,7 +166,8 @@ public:
         return false;
     }
 
-    inline bool PushState(const std::shared_ptr<State> & state) {
+    inline bool PushState(const std::shared_ptr<State> &state)
+    {
         if (!state)
             return false;
 
@@ -170,36 +188,64 @@ public:
         return true;
     }
 
-    inline bool PopFrontState() {
+    inline bool PopFrontState()
+    {
         std::unique_lock<std::mutex> lock(states_mtx_);
         if (states_.empty())
             return false;
         states_.erase(states_.begin());
-        if (!states_.empty()) {
+        if (!states_.empty())
+        {
             states_[0]->last_state_ = nullptr;
             states_[0]->preint_ = nullptr;
         }
         return true;
     }
 
-    inline std::vector<std::shared_ptr<State>> GetAllStates() {
+    inline bool PopSecondLastState()
+    {
+        std::unique_lock<std::mutex> lock(states_mtx_);
+        if (states_.size() < 2)
+            return false;
+        const size_t remove_index = states_.size() - 2;
+        states_.erase(states_.begin() + remove_index);
+        if (!states_.empty())
+        {
+            if (states_.size() >= 2)
+            {
+                states_.back()->last_state_ = states_[states_.size() - 2];
+            }
+            else
+            {
+                states_.back()->last_state_ = nullptr;
+            }
+        }
+        return true;
+    }
+
+    inline std::vector<std::shared_ptr<State>> GetAllStates()
+    {
         std::unique_lock<std::mutex> lock(states_mtx_);
         return states_;
     }
 
-    inline bool Empty() {
+    inline bool Empty()
+    {
         std::unique_lock<std::mutex> lock(states_mtx_);
         return states_.empty();
     }
 
-    inline void Reset() {
+    inline void Reset()
+    {
         std::unique_lock<std::mutex> lock(states_mtx_);
         states_.clear();
     }
     // todo getbetween 差值等
 
-    std::map<int, std::shared_ptr<CamState>, std::less<int>, 
-        Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<CamState>>>> cam_states_;
+    std::map<int, std::shared_ptr<CamState>, std::less<int>,
+             Eigen::aligned_allocator<std::pair<const int, std::shared_ptr<CamState>>>>
+        cam_states_;
+
 private:
     // 不同线程访问，一定要加锁
     std::mutex states_mtx_;
