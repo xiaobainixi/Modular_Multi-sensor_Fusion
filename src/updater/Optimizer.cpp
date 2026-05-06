@@ -10,7 +10,11 @@ bool QLocalParameterization::Plus(const double *x, const double *delta, double *
     q = (_q * dq).normalized();
     return true;
 }
+#if CERES_VERSION_MAJOR >= 2
+bool QLocalParameterization::PlusJacobian(const double *x, double *jacobian) const
+#else
 bool QLocalParameterization::ComputeJacobian(const double *x, double *jacobian) const
+#endif
 {
     // 这里要注意！！！！！！！
     // 自己算雅可比时，关于旋转的雅可比直接对应的是旋转向量，所以这里是单位阵
@@ -33,6 +37,25 @@ bool QLocalParameterization::ComputeJacobian(const double *x, double *jacobian) 
     // return true;
     return true;
 }
+
+#if CERES_VERSION_MAJOR >= 2
+bool QLocalParameterization::Minus(const double *y, const double *x, double *y_minus_x) const
+{
+    Eigen::Map<const Eigen::Quaterniond> q_x(x);
+    Eigen::Map<const Eigen::Quaterniond> q_y(y);
+    Eigen::Map<Eigen::Vector3d> delta(y_minus_x);
+    delta = Converter::QuaternionToRotVec((q_x.conjugate() * q_y).normalized());
+    return true;
+}
+
+bool QLocalParameterization::MinusJacobian(const double *x, double *jacobian) const
+{
+    Eigen::Map<Eigen::Matrix<double, 3, 4, Eigen::RowMajor>> j(jacobian);
+    j.setZero();
+    j.block<3, 3>(0, 0).setIdentity();
+    return true;
+}
+#endif
 
 void Optimizer::SlideWindow(bool slide_old)
 {

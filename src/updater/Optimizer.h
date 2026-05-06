@@ -6,12 +6,26 @@
 #include "marginalization/marginalization_info.h"
 #include "marginalization/residual_block_info.h"
 
-class QLocalParameterization : public ceres::LocalParameterization
+class QLocalParameterization
+#if CERES_VERSION_MAJOR >= 2
+    : public ceres::Manifold
+#else
+    : public ceres::LocalParameterization
+#endif
 {
+public:
     virtual bool Plus(const double *x, const double *delta, double *x_plus_delta) const;
+#if CERES_VERSION_MAJOR >= 2
+    virtual bool PlusJacobian(const double *x, double *jacobian) const;
+    virtual bool Minus(const double *y, const double *x, double *y_minus_x) const;
+    virtual bool MinusJacobian(const double *x, double *jacobian) const;
+    virtual int AmbientSize() const { return 4; };
+    virtual int TangentSize() const { return 3; };
+#else
     virtual bool ComputeJacobian(const double *x, double *jacobian) const;
     virtual int GlobalSize() const { return 4; };
     virtual int LocalSize() const { return 3; };
+#endif
 };
 
 class Optimizer : public Updater

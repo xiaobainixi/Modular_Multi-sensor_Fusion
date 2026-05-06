@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <filesystem>
 
 #include <glog/logging.h>
 #include <Eigen/Core>
@@ -51,7 +52,9 @@ public:
     Parameter(const std::string &file)
     {
         cv::FileStorage f_settings;
-        std::string global_file_path = WORK_SPACE_PATH + "/config/" + file;
+        std::string global_file_path = file;
+        if (!std::filesystem::exists(global_file_path))
+            global_file_path = WORK_SPACE_PATH + "/config/" + file;
         LOG(INFO) << "config path: " << global_file_path;
         if (file.empty() || !f_settings.open(global_file_path, cv::FileStorage::READ))
         {
@@ -178,6 +181,16 @@ public:
             data_type_ = node.string();
         LOG(INFO) << "data type: " << data_type_;
 
+        node = f_settings["enable_viewer"];
+        if (!node.empty() && node.isInt())
+            enable_viewer_ = int(node.real()) == 1;
+        LOG(INFO) << "enable_viewer: " << enable_viewer_;
+
+        node = f_settings["camera_input_is_bayer"];
+        if (!node.empty() && node.isInt())
+            camera_input_is_bayer_ = int(node.real()) == 1;
+        LOG(INFO) << "camera_input_is_bayer: " << camera_input_is_bayer_;
+
         if (!use_imu_ && wheel_use_type_ != 1)
         {
             LOG(ERROR) << "至少选择一个传感器作为预测";
@@ -229,6 +242,77 @@ public:
         if (!node.empty() && node.isReal())
             visual_observation_noise_ = node.real();
         LOG(INFO) << "visual_observation_noise: " << visual_observation_noise_;
+
+        node = f_settings["window_size"];
+        if (!node.empty() && node.isInt())
+            WINDOW_SIZE = int(node.real());
+        LOG(INFO) << "window_size: " << WINDOW_SIZE;
+
+        node = f_settings["feature_max_count"];
+        if (!node.empty() && node.isInt())
+            feature_max_count_ = int(node.real());
+        LOG(INFO) << "feature_max_count: " << feature_max_count_;
+
+        node = f_settings["feature_min_distance"];
+        if (!node.empty() && node.isInt())
+            feature_min_distance_ = int(node.real());
+        LOG(INFO) << "feature_min_distance: " << feature_min_distance_;
+
+        node = f_settings["feature_f_threshold"];
+        if (!node.empty() && node.isReal())
+            feature_f_threshold_ = node.real();
+        LOG(INFO) << "feature_f_threshold: " << feature_f_threshold_;
+
+        node = f_settings["feature_equalize"];
+        if (!node.empty() && node.isInt())
+            feature_equalize_ = int(node.real()) == 1;
+        LOG(INFO) << "feature_equalize: " << feature_equalize_;
+
+        node = f_settings["camera_tracking_rate_threshold"];
+        if (!node.empty() && node.isReal())
+            camera_tracking_rate_threshold_ = node.real();
+        LOG(INFO) << "camera_tracking_rate_threshold: " << camera_tracking_rate_threshold_;
+
+        node = f_settings["camera_state_prune_rotation_threshold_deg"];
+        if (!node.empty() && node.isReal())
+            camera_state_prune_rotation_threshold_deg_ = node.real();
+        LOG(INFO) << "camera_state_prune_rotation_threshold_deg: " << camera_state_prune_rotation_threshold_deg_;
+
+        node = f_settings["camera_state_prune_translation_threshold"];
+        if (!node.empty() && node.isReal())
+            camera_state_prune_translation_threshold_ = node.real();
+        LOG(INFO) << "camera_state_prune_translation_threshold: " << camera_state_prune_translation_threshold_;
+
+        node = f_settings["msckf_translation_threshold"];
+        if (!node.empty() && node.isReal())
+            msckf_optimization_config_.translation_threshold = node.real();
+        LOG(INFO) << "msckf_translation_threshold: " << msckf_optimization_config_.translation_threshold;
+
+        node = f_settings["msckf_huber_epsilon"];
+        if (!node.empty() && node.isReal())
+            msckf_optimization_config_.huber_epsilon = node.real();
+        LOG(INFO) << "msckf_huber_epsilon: " << msckf_optimization_config_.huber_epsilon;
+
+        node = f_settings["msckf_estimation_precision"];
+        if (!node.empty() && node.isReal())
+            msckf_optimization_config_.estimation_precision = node.real();
+        LOG(INFO) << "msckf_estimation_precision: " << msckf_optimization_config_.estimation_precision;
+
+        node = f_settings["msckf_initial_damping"];
+        if (!node.empty() && node.isReal())
+            msckf_optimization_config_.initial_damping = node.real();
+        LOG(INFO) << "msckf_initial_damping: " << msckf_optimization_config_.initial_damping;
+
+        node = f_settings["msckf_outer_loop_max_iteration"];
+        if (!node.empty() && node.isInt())
+            msckf_optimization_config_.outer_loop_max_iteration = int(node.real());
+        LOG(INFO) << "msckf_outer_loop_max_iteration: " << msckf_optimization_config_.outer_loop_max_iteration;
+
+        node = f_settings["msckf_inner_loop_max_iteration"];
+        if (!node.empty() && node.isInt())
+            msckf_optimization_config_.inner_loop_max_iteration = int(node.real());
+        LOG(INFO) << "msckf_inner_loop_max_iteration: " << msckf_optimization_config_.inner_loop_max_iteration;
+
         node = f_settings["camera_fx"];
         if (!node.empty() && node.isReal())
             cam_intrinsics_[0] = node.real();
@@ -319,9 +403,18 @@ public:
     int WINDOW_SIZE = 10;
     MSCKFOptimizationConfig msckf_optimization_config_;
     double visual_observation_noise_ = 0.01;
+    int feature_max_count_ = 500;
+    int feature_min_distance_ = 10;
+    double feature_f_threshold_ = 1.0;
+    bool feature_equalize_ = true;
     std::string cam_distortion_model_;
     cv::Vec4d cam_intrinsics_;
     cv::Vec4d cam_distortion_coeffs_;
+    bool enable_viewer_ = true;
+    bool camera_input_is_bayer_ = false;
+    double camera_tracking_rate_threshold_ = 0.75;
+    double camera_state_prune_rotation_threshold_deg_ = 15.0;
+    double camera_state_prune_translation_threshold_ = 0.2;
 
     Eigen::Matrix3d Rbc_;
     Eigen::Vector3d tbc_;

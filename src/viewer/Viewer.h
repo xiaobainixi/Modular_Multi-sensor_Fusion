@@ -44,7 +44,8 @@ public:
     ~Viewer()
     {
         running_flag_ = false;
-        viz_thread_->join();
+        if (viz_thread_ && viz_thread_->joinable())
+            viz_thread_->join();
     }
 
     void DrawCameras(const std::vector<std::pair<Eigen::Matrix3d, Eigen::Vector3d>> &camera_poses);

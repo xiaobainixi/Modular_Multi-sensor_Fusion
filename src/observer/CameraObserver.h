@@ -23,7 +23,7 @@ public:
         {
             boost::math::chi_squared chi_squared_dist(i);
             chi_squared_test_table_[i] =
-                boost::math::quantile(chi_squared_dist, 0.05);
+                boost::math::quantile(chi_squared_dist, 0.95);
         }
 
         // 跳过初始化的帧id

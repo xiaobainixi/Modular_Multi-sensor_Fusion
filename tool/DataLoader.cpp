@@ -46,12 +46,11 @@ DataLoader::DataLoader(const std::shared_ptr<Parameter> & param_ptr) {
 }
 }
 
-InputData DataLoader::GetNextData() {
+bool DataLoader::GetNextData(InputData & output_data) {
     if (datas_.empty()) {
-        std::cerr << "data empty" << std::endl;
-        exit(0);
+        return false;
     }
-    InputData output_data = datas_.front();
+    output_data = datas_.front();
     // todo add read image
     datas_.pop();
 
@@ -65,7 +64,11 @@ InputData DataLoader::GetNextData() {
 
     gettimeofday(&t1_, NULL);
     last_data_time_ = output_data.time_;
-    return output_data;
+    return true;
+}
+
+bool DataLoader::HasPendingData() const {
+    return !datas_.empty();
 }
 
 bool DataLoader::ReadIMU(const std::string & path)
