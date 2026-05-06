@@ -61,6 +61,10 @@ bool ImageProcessor::loadParameters()
     cam0_intrinsics[3] = param_ptr_->cam_intrinsics_[3];
 
     cam0_distortion_coeffs = param_ptr_->cam_distortion_coeffs_;
+    MAX_CNT = param_ptr_->feature_max_count_;
+    MIN_DIST = param_ptr_->feature_min_distance_;
+    F_THRESHOLD = param_ptr_->feature_f_threshold_;
+    EQUALIZE = param_ptr_->feature_equalize_ ? 1 : 0;
     return true;
 }
 

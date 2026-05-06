@@ -1,0 +1,68 @@
+%YAML:1.0
+
+fusion_model: 1
+
+use_imu: 1
+wheel_use_type: 0
+gnss_wheel_align: 0
+use_gnss: 0
+use_camera: 1
+
+gyro_noise: 0.0035
+gyro_bias_noise: 2.0e-6
+acc_noise: 0.007
+acc_bias_noise: 3.5e-5
+
+fix_yz_in_eskf: 0
+
+visual_observation_noise: 0.0008
+window_size: 10
+keyframe_parallax: 8.0
+
+feature_max_count: 260
+feature_min_distance: 18
+feature_f_threshold: 1.0
+feature_equalize: 1
+
+camera_tracking_rate_threshold: 0.72
+camera_state_prune_rotation_threshold_deg: 10.0
+camera_state_prune_translation_threshold: 0.12
+
+msckf_translation_threshold: 0.10
+msckf_huber_epsilon: 0.008
+msckf_estimation_precision: 5e-7
+msckf_initial_damping: 1e-3
+msckf_outer_loop_max_iteration: 8
+msckf_inner_loop_max_iteration: 8
+
+cam_distortion_model: radtan
+camera_fx: 458.654
+camera_fy: 457.296
+camera_cx: 367.215
+camera_cy: 248.375
+
+camera_k1: -0.28340811
+camera_k2: 0.07395907
+camera_p1: 0.00019359
+camera_p2: 1.76187114e-05
+camera_k3: 0.0
+
+Rbc: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 0.0148655429818, -0.999880929698, 0.00414029679422,
+           0.999557249008, 0.0149672133247, 0.025715529948,
+           -0.0257744366974, 0.00375618835797, 0.999660727178]
+tbc: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [-0.0216401454975, -0.064676986768, 0.00981073058949]
+
+play_speed: 30.0
+skip_seconds: 0.0
+data_type: euroc
+data_path: __DATA_PATH__
+enable_viewer: 0
+camera_input_is_bayer: 0

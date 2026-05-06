@@ -23,16 +23,21 @@ include_directories(${GLOG_INCLUDE_DIRS})
 
 find_package(OpenCV 4)
 if(NOT OpenCV_FOUND)
-    message(FATAL_ERROR "OpenCV > 4 not found.")
-    find_package(OpenCV 3)
+    find_package(OpenCV 3 REQUIRED)
 endif()
 MESSAGE("OPENCV VERSION:")
 MESSAGE(${OpenCV_VERSION})
 
 find_package(Eigen3 REQUIRED)
 find_package(Ceres REQUIRED)
-find_package(Pangolin REQUIRED)
-include_directories(${Pangolin_INCLUDE_DIRS})
+find_package(Pangolin QUIET)
+if(Pangolin_FOUND)
+    include_directories(${Pangolin_INCLUDE_DIRS})
+    add_definitions(-DMODULAR_FUSION_HAVE_PANGOLIN=1)
+else()
+    message(WARNING "Pangolin not found, building in headless mode.")
+    add_definitions(-DMODULAR_FUSION_HAVE_PANGOLIN=0)
+endif()
 
 include_directories(
     /opt/local/include   #mac os
@@ -75,10 +80,12 @@ target_link_libraries(${PROJECT_NAME}
     ${OpenCV_LIBS}
     ${EIGEN3_LIBS}
     ${CERES_LIBRARIES}
-    ${Pangolin_LIBRARIES}
     ${GLOG_LIBRARIES}
     ${SUITESPARSE_LIBRARIES}
 )
+if(Pangolin_FOUND)
+    target_link_libraries(${PROJECT_NAME} ${Pangolin_LIBRARIES})
+endif()
 
 add_executable(data_test app/data_test.cpp)
 target_link_libraries(data_test ${PROJECT_NAME})

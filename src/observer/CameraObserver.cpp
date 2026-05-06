@@ -302,6 +302,9 @@ bool CameraObserver::ComputeHZR(
             // 计算相对于关键相机状态的平移与旋转
             double distance = (position - key_position).norm();
             double angle = Eigen::AngleAxisd(rotation.transpose() * key_rotation).angle();
+            const double angle_threshold =
+                param_ptr_->camera_state_prune_rotation_threshold_deg_ * M_PI / 180.0;
+            const double distance_threshold = param_ptr_->camera_state_prune_translation_threshold_;
 
             // 判断大小以及跟踪率，就是cam_state_iter这个状态与关键相机状态的相似度，
             // 且当前的点跟踪率很高
@@ -312,7 +315,9 @@ bool CameraObserver::ComputeHZR(
             //     tracking_rate > tracking_rate_threshold)
             LOG(INFO) << "OLDEST cam state id: " << first_cam_state_iter->first << " " << angle << " "
                       << distance << " " << tracking_rate;
-            if (tracking_rate > 0.9)
+            if (tracking_rate > param_ptr_->camera_tracking_rate_threshold_ &&
+                angle < angle_threshold &&
+                distance < distance_threshold)
             {
                 LOG(INFO) << "Removing cam state id: " << cam_state_iter->first;
                 rm_cam_state_ids.push_back(cam_state_iter->first);

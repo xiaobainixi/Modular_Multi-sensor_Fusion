@@ -42,7 +42,8 @@ public:
     bool ReadEurocIMU(const std::string & path);
     bool ReadEurocImage(const std::string & path);
 
-    InputData GetNextData();
+    bool GetNextData(InputData & output_data);
+    bool HasPendingData() const;
 private:
     std::shared_ptr<Parameter> param_ptr_;
     std::queue<InputData> datas_, gnss_datas_, imu_datas_, image_datas_, wheel_datas_;

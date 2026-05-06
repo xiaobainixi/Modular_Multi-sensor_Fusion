@@ -1,18 +1,22 @@
 #include "Viewer.h"
 
 #include <mutex>
+#if MODULAR_FUSION_HAVE_PANGOLIN
 #include <pangolin/pangolin.h>
+#endif
 
 Viewer::Viewer(const Config &config) : config_(config)
 {
-    // Start viz_thread.
+#if MODULAR_FUSION_HAVE_PANGOLIN
     viz_thread_ = std::make_shared<std::thread>(&Viewer::Run, this);
+#endif
 }
 
 Viewer::Viewer()
 {
-    // Start viz_thread.
+#if MODULAR_FUSION_HAVE_PANGOLIN
     viz_thread_ = std::make_shared<std::thread>(&Viewer::Run, this);
+#endif
 }
 
 void Viewer::DrawCameras(const std::vector<std::pair<Eigen::Matrix3d, Eigen::Vector3d>> &camera_poses)
@@ -109,6 +113,7 @@ void Viewer::DrawImage(const cv::Mat &image,
     cv::flip(image_, image_, 0);
 }
 
+#if MODULAR_FUSION_HAVE_PANGOLIN
 pangolin::OpenGlMatrix SE3ToOpenGlMat(const Eigen::Matrix3d &G_R_C, const Eigen::Vector3d &G_p_C)
 {
     pangolin::OpenGlMatrix p_mat;
@@ -388,3 +393,42 @@ void Viewer::Run()
         pangolin::FinishFrame();
     }
 }
+#else
+void Viewer::DrawCameras()
+{
+}
+
+void Viewer::DrawTraj(const std::deque<std::pair<Eigen::Matrix3d, Eigen::Vector3d>> &traj_data)
+{
+}
+
+void Viewer::DrawFeatures()
+{
+}
+
+void Viewer::DrawWheeFrame(const Eigen::Matrix3d &G_R_O, const Eigen::Vector3d &G_p_O)
+{
+}
+
+void Viewer::DrawWheeFrame()
+{
+}
+
+void Viewer::DrawGpsPoints()
+{
+}
+
+void Viewer::DrawOneCamera(const Eigen::Matrix3d &G_R_C, const Eigen::Vector3d &G_p_C)
+{
+}
+
+void Viewer::Stop()
+{
+    running_flag_ = false;
+}
+
+void Viewer::Run()
+{
+    running_flag_ = false;
+}
+#endif
