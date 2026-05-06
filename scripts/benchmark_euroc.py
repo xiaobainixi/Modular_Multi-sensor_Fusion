@@ -5,6 +5,7 @@ import argparse
 import csv
 import json
 import math
+import os
 import re
 import shutil
 import subprocess
@@ -115,7 +116,7 @@ def ensure_built(repo_root: Path) -> Path:
     if executable.exists():
         return executable
     run_cmd(["cmake", "-S", str(repo_root), "-B", str(repo_root / "build")], cwd=repo_root)
-    run_cmd(["cmake", "--build", str(repo_root / "build"), "-j"], cwd=repo_root, timeout=1800)
+    run_cmd(["cmake", "--build", str(repo_root / "build"), "-j", str(os.cpu_count() or 1)], cwd=repo_root, timeout=1800)
     return executable
 
 

@@ -4,26 +4,26 @@
 
 1. 安装环境并编译
    ```bash
-   /home/runner/work/Modular_Multi-sensor_Fusion/Modular_Multi-sensor_Fusion/scripts/setup_euroc_env.sh
+   ./scripts/setup_euroc_env.sh
    ```
 2. 下载 EuRoC 的 `MH_01_easy` 与 `V2_02_medium`
    ```bash
-   /home/runner/work/Modular_Multi-sensor_Fusion/Modular_Multi-sensor_Fusion/scripts/download_euroc.sh
+   ./scripts/download_euroc.sh
    ```
 3. 一键运行两种模式、自动评估 ATE/RPE、输出图表与报告
    ```bash
-   python3 /home/runner/work/Modular_Multi-sensor_Fusion/Modular_Multi-sensor_Fusion/scripts/benchmark_euroc.py
+   python3 ./scripts/benchmark_euroc.py
    ```
 
 ## 可直接运行的启动脚本
 
 - 滤波模式：
   ```bash
-  /home/runner/work/Modular_Multi-sensor_Fusion/Modular_Multi-sensor_Fusion/scripts/launch_euroc_filter.sh
+  ./scripts/launch_euroc_filter.sh
   ```
 - 优化模式：
   ```bash
-  /home/runner/work/Modular_Multi-sensor_Fusion/Modular_Multi-sensor_Fusion/scripts/launch_euroc_optimizer.sh
+  ./scripts/launch_euroc_optimizer.sh
   ```
 
 ## 关键输出

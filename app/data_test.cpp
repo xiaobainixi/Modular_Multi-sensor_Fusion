@@ -141,5 +141,5 @@ int main(int argc, char **argv) {
     trajectory_file.flush();
     state_csv_file.flush();
 
-    std::exit(0);
+    return 0;
 }
