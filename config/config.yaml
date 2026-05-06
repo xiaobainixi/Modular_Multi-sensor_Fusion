@@ -70,3 +70,4 @@ tbc: !!opencv-matrix
 # data
 play_speed: 10.0
 data_path: ../data/
+camera_input_is_bayer: 1

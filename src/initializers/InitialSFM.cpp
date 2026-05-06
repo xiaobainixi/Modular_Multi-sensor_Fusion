@@ -300,7 +300,11 @@ bool GlobalSFM::construct(int frame_num, Eigen::Quaterniond *q, Eigen::Vector3d 
     //  Step 5 求出了所有的位姿和3d点之后，进行一个视觉slam的global BA
     //  可能需要介绍一下ceres  http://ceres-solver.org/
     ceres::Problem problem;
+#if CERES_VERSION_MAJOR >= 2
+    ceres::Manifold *local_parameterization = new ceres::QuaternionManifold();
+#else
     ceres::LocalParameterization *local_parameterization = new ceres::QuaternionParameterization();
+#endif
     // cout << " begin full BA " << endl;
     for (int i = 0; i < frame_num; i++)
     {

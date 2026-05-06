@@ -13,6 +13,7 @@ sudo apt-get install -y \
   python3-yaml \
   python3-numpy \
   python3-matplotlib \
+  libboost-all-dev \
   libopencv-dev \
   libceres-dev \
   libgoogle-glog-dev \
